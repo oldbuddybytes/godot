@@ -11,6 +11,7 @@
 #include "core/io/json.h"
 #include "scene/gui/control.h"
 #include "scene/gui/subviewport_container.h"
+#include "scene/gui/texture_rect.h"
 #include "scene/main/scene_tree.h"
 #include "scene/main/viewport.h"
 #include "scene/main/window.h"
@@ -43,6 +44,67 @@ String _shape_path(Object *p_collider, int p_shape) {
 	}
 	Object *shape = collider->shape_owner_get_owner(collider->shape_find_owner(p_shape));
 	return _node_path(Object::cast_to<Node>(shape ? shape : p_collider));
+}
+
+// The Viewport whose texture p_texture is, searching the tree under p_node.
+Viewport *_viewport_for_texture(Node *p_node, const Ref<Texture2D> &p_texture) {
+	Viewport *vp = Object::cast_to<Viewport>(p_node);
+	if (vp && vp->get_texture() == p_texture) {
+		return vp;
+	}
+	for (int i = 0; i < p_node->get_child_count(); i++) {
+		if (Viewport *found = _viewport_for_texture(p_node->get_child(i), p_texture)) {
+			return found;
+		}
+	}
+	return nullptr;
+}
+
+// The topmost visible TextureRect under p_position that shows a viewport's texture, e.g. a
+// low-resolution 3D world scaled up to the window. Its mouse filter is often "ignore", so
+// gui_find_control() does not see it. Does not descend into other viewports.
+TextureRect *_find_screen_rect(Node *p_node, const Vector2 &p_position, Vector2 &r_local) {
+	TextureRect *found = nullptr;
+	for (int i = 0; i < p_node->get_child_count(); i++) {
+		Node *child = p_node->get_child(i);
+		if (Object::cast_to<Viewport>(child)) {
+			continue;
+		}
+		if (TextureRect *deeper = _find_screen_rect(child, p_position, r_local)) {
+			found = deeper; // Later siblings draw on top.
+		}
+	}
+	if (found) {
+		return found;
+	}
+	TextureRect *rect = Object::cast_to<TextureRect>(p_node);
+	if (rect && rect->is_visible_in_tree() && Object::cast_to<ViewportTexture>(rect->get_texture().ptr())) {
+		const Vector2 local = rect->get_global_transform_with_canvas().affine_inverse().xform(p_position);
+		if (Rect2(Vector2(), rect->get_size()).has_point(local)) {
+			r_local = local;
+			return rect;
+		}
+	}
+	return nullptr;
+}
+
+// Picks inside the viewport shown by p_rect, mapping p_local (in the rect) to viewport pixels.
+// Assumes the texture fills the rect (the default stretch modes).
+void _pick_through_rect(TextureRect *p_rect, const Vector2 &p_local, Dictionary &r_result) {
+	Viewport *inner = _viewport_for_texture(p_rect->get_tree()->get_root(), p_rect->get_texture());
+	if (!inner) {
+		// A ViewportTexture saved in a scene points to its viewport by path instead.
+		const ViewportTexture *texture = Object::cast_to<ViewportTexture>(p_rect->get_texture().ptr());
+		Node *scene = texture ? texture->get_local_scene() : nullptr;
+		if (scene && !texture->get_viewport_path_in_scene().is_empty()) {
+			inner = Object::cast_to<Viewport>(scene->get_node_or_null(texture->get_viewport_path_in_scene()));
+		}
+	}
+	if (!inner || p_rect->get_size().x <= 0 || p_rect->get_size().y <= 0) {
+		return;
+	}
+	const Vector2 inner_size = inner->get_visible_rect().size;
+	r_result["inside"] = AgentInspector::pick(p_local / p_rect->get_size() * inner_size, inner);
 }
 
 } // namespace
@@ -114,8 +176,17 @@ Dictionary AgentInspector::pick(const Vector2 &p_position, Object *p_viewport) {
 	result["viewport"] = _node_path(viewport);
 	result["position"] = String(p_position);
 
+	// A viewport shown by a TextureRect that ignores the mouse (the usual pixel-art setup).
+	// It wins over a control that only contains it, such as the scene's root Control.
+	Vector2 screen_local;
+	TextureRect *screen = _find_screen_rect(viewport, p_position, screen_local);
+	Control *control = viewport->gui_find_control(p_position);
+	if (control && screen && control->is_ancestor_of(screen)) {
+		control = nullptr;
+	}
+
 	// UI first, since it is drawn on top.
-	if (Control *control = viewport->gui_find_control(p_position)) {
+	if (control) {
 		result["control"] = _node_path(control);
 		// Follow input into a SubViewport, e.g. a terminal screen rendered from its own viewport.
 		if (SubViewportContainer *container = Object::cast_to<SubViewportContainer>(control)) {
@@ -127,6 +198,18 @@ Dictionary AgentInspector::pick(const Vector2 &p_position, Object *p_viewport) {
 				}
 			}
 		}
+		// Follow into a viewport shown by a TextureRect that receives mouse input.
+		if (TextureRect *rect = Object::cast_to<TextureRect>(control)) {
+			if (Object::cast_to<ViewportTexture>(rect->get_texture().ptr())) {
+				_pick_through_rect(rect, rect->get_global_transform_with_canvas().affine_inverse().xform(p_position), result);
+			}
+		}
+		return result;
+	}
+
+	if (screen) {
+		result["screen"] = _node_path(screen);
+		_pick_through_rect(screen, screen_local, result);
 		return result;
 	}
 

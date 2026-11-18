@@ -79,6 +79,13 @@
 				Presses the input action [param action] until [method release_action] is called or the test ends.
 			</description>
 		</method>
+		<method name="hold_key">
+			<return type="void" />
+			<param index="0" name="key" type="int" />
+			<description>
+				Presses the physical key [param key] until [method release_key] is called or the test ends.
+			</description>
+		</method>
 		<method name="load_scene">
 			<return type="Node" />
 			<param index="0" name="path" type="String" />
@@ -108,11 +115,26 @@
 				Presses the input action [param action] and releases it after [param seconds]. Await the returned signal to continue after the release.
 			</description>
 		</method>
+		<method name="press_key">
+			<return type="Signal" />
+			<param index="0" name="key" type="int" />
+			<param index="1" name="seconds" type="float" default="0.1" />
+			<description>
+				Presses the physical key [param key] (a [enum Key] such as [constant KEY_W]) and releases it after [param seconds]. Use this for games that read keys directly with [method Input.is_physical_key_pressed] instead of input actions. Await the returned signal to continue after the release.
+			</description>
+		</method>
 		<method name="release_action">
 			<return type="void" />
 			<param index="0" name="action" type="StringName" />
 			<description>
 				Releases the input action [param action].
+			</description>
+		</method>
+		<method name="release_key">
+			<return type="void" />
+			<param index="0" name="key" type="int" />
+			<description>
+				Releases the physical key [param key].
 			</description>
 		</method>
 		<method name="screenshot">

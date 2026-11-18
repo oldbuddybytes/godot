@@ -53,7 +53,7 @@
 			<param index="0" name="position" type="Vector2" />
 			<param index="1" name="viewport" type="Object" default="null" />
 			<description>
-				Returns what is under [param position] in [param viewport] (the main window if [code]null[/code]): [code]control[/code] for UI, then [code]object[/code] for the 3D or 2D physics shape hit (with [code]hit_position[/code]), or [code]object = null[/code] if nothing is there. For a [SubViewportContainer], [code]inside[/code] holds the result of picking inside its [SubViewport].
+				Returns what is under [param position] in [param viewport] (the main window if [code]null[/code]): [code]control[/code] for UI, then [code]object[/code] for the 3D or 2D physics shape hit (with [code]hit_position[/code]), or [code]object = null[/code] if nothing is there. For a [SubViewportContainer], or a [TextureRect] showing a [ViewportTexture] (e.g. a low-resolution world scaled up, even with its mouse filter set to ignore, reported as [code]screen[/code]), [code]inside[/code] holds the result of picking inside that viewport.
 			</description>
 		</method>
 		<method name="resource_users" qualifiers="static">

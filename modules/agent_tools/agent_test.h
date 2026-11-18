@@ -23,6 +23,7 @@ class AgentTest : public Node {
 		Ref<AgentWait> wait;
 		int frames_left = 0;
 		StringName release_action;
+		int release_key = 0;
 		ObjectID signal_source;
 		StringName signal_name;
 		Callable signal_callable;
@@ -52,6 +53,7 @@ public:
 
 private:
 	void _send_action(const StringName &p_action, bool p_pressed);
+	void _send_key(int p_key, bool p_pressed);
 	void _track_collisions();
 	Variant _on_awaited_signal(const Variant **p_args, int p_argcount, Callable::CallError &r_error);
 
@@ -65,6 +67,10 @@ public:
 	Signal press_action(const StringName &p_action, double p_seconds = 0.1);
 	void hold_action(const StringName &p_action);
 	void release_action(const StringName &p_action);
+	// Physical key presses, for games that read keys directly (Input.is_physical_key_pressed).
+	Signal press_key(int p_key, double p_seconds = 0.1);
+	void hold_key(int p_key);
+	void release_key(int p_key);
 
 	// Waits.
 	Signal physics_frames(int p_frames);

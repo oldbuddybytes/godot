@@ -75,6 +75,16 @@ static String _shape_name(const AgentTest *p_test, ObjectID p_collider, int p_sh
 	return (p_test->*p_describe)(shape ? shape : collider);
 }
 
+void AgentTest::_send_key(int p_key, bool p_pressed) {
+	Ref<InputEventKey> event;
+	event.instantiate();
+	event->set_keycode(Key(p_key));
+	event->set_physical_keycode(Key(p_key));
+	event->set_pressed(p_pressed);
+	Input::get_singleton()->parse_input_event(event);
+	trace(vformat("%s key %s", p_pressed ? "press" : "release", keycode_get_string(Key(p_key))));
+}
+
 void AgentTest::_track_collisions() {
 	for (const ObjectID &id : tracked_bodies) {
 		Object *obj = ObjectDB::get_instance(id);
@@ -170,6 +180,9 @@ void AgentTest::_notification(int p_what) {
 				if (w.release_action != StringName()) {
 					_send_action(w.release_action, false);
 				}
+				if (w.release_key != 0) {
+					_send_key(w.release_key, false);
+				}
 				w.wait->emit_signal(SNAME("done"), value);
 			}
 		} break;
@@ -202,6 +215,21 @@ void AgentTest::hold_action(const StringName &p_action) {
 
 void AgentTest::release_action(const StringName &p_action) {
 	_send_action(p_action, false);
+}
+
+Signal AgentTest::press_key(int p_key, double p_seconds) {
+	_send_key(p_key, true);
+	Wait &w = _add_wait(_frames_for(p_seconds));
+	w.release_key = p_key;
+	return _signal_of(w);
+}
+
+void AgentTest::hold_key(int p_key) {
+	_send_key(p_key, true);
+}
+
+void AgentTest::release_key(int p_key) {
+	_send_key(p_key, false);
 }
 
 Signal AgentTest::physics_frames(int p_frames) {
@@ -338,6 +366,9 @@ void AgentTest::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("press_action", "action", "seconds"), &AgentTest::press_action, DEFVAL(0.1));
 	ClassDB::bind_method(D_METHOD("hold_action", "action"), &AgentTest::hold_action);
 	ClassDB::bind_method(D_METHOD("release_action", "action"), &AgentTest::release_action);
+	ClassDB::bind_method(D_METHOD("press_key", "key", "seconds"), &AgentTest::press_key, DEFVAL(0.1));
+	ClassDB::bind_method(D_METHOD("hold_key", "key"), &AgentTest::hold_key);
+	ClassDB::bind_method(D_METHOD("release_key", "key"), &AgentTest::release_key);
 	ClassDB::bind_method(D_METHOD("physics_frames", "frames"), &AgentTest::physics_frames);
 	ClassDB::bind_method(D_METHOD("seconds", "seconds"), &AgentTest::seconds);
 	ClassDB::bind_method(D_METHOD("signal_or_timeout", "object", "signal", "timeout"), &AgentTest::signal_or_timeout, DEFVAL(5.0));
