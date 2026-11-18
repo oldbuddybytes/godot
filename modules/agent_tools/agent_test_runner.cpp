@@ -213,13 +213,13 @@ void AgentTestRunner::_report() {
 	summary["tests"] = results;
 	const String json_text = JSON::stringify(summary, "", false);
 	if (!json_out.is_empty()) {
-		Ref<FileAccess> f = FileAccess::open(json_out, FileAccess::WRITE);
+		Ref<FileAccess> f = FileAccess::open(agent_output_path(json_out), FileAccess::WRITE);
 		if (f.is_valid()) {
 			f->store_string(json_text);
 		}
 	}
 	if (!junit_out.is_empty()) {
-		Ref<FileAccess> f = FileAccess::open(junit_out, FileAccess::WRITE);
+		Ref<FileAccess> f = FileAccess::open(agent_output_path(junit_out), FileAccess::WRITE);
 		if (f.is_valid()) {
 			String xml = vformat("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<testsuite name=\"agent-test\" tests=\"%d\" failures=\"%d\">\n", results.size(), failed_count);
 			for (int i = 0; i < results.size(); i++) {

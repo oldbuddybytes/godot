@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="AgentTools" inherits="Object" api_type="core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Entry point and version of the agent tools module.
+	</brief_description>
+	<description>
+		Helpers for AI agents and automation: project validation ([AgentValidator]), property provenance ([AgentInspector]) and gameplay tests ([AgentTest]). Command-line flags: [code]--validate-project[/code], [code]--explain-property[/code], [code]--find-overrides[/code], [code]--resource-users[/code] and [code]--agent-test[/code].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_version" qualifiers="static">
+			<return type="String" />
+			<description>
+				Returns the module version, e.g. [code]"0.1.0"[/code].
+			</description>
+		</method>
+	</methods>
+</class>

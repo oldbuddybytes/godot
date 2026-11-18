@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="AgentTest" inherits="Node" api_type="core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Base class for gameplay tests run with [code]--agent-test[/code].
+	</brief_description>
+	<description>
+		Extend this class and add [code]test_*[/code] methods. Each test runs in a fresh scene tree with a fixed time step and random seed, so runs are repeatable. Waits count physics frames and return a [Signal] to [code]await[/code]. A failed assertion records the first failure and its script line; the test keeps running. Input sent, signals received and collisions of tracked bodies go into a trace that is printed when a test fails.
+		[codeblock]
+		extends AgentTest
+
+		func test_door_opens() -&gt; void:
+		    var level := load_scene("res://level.tscn")
+		    track_body(level.get_node("Player"))
+		    await press_action("interact")
+		    assert_true(await signal_or_timeout(level.get_node("Door"), "opened", 2.0), "door should open")
+		[/codeblock]
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="assert_eq">
+			<return type="bool" />
+			<param index="0" name="actual" type="Variant" />
+			<param index="1" name="expected" type="Variant" />
+			<param index="2" name="message" type="String" default="&quot;&quot;" />
+			<description>
+				Fails the test if [param actual] is not equal to [param expected]. The message shows both values.
+			</description>
+		</method>
+		<method name="assert_false">
+			<return type="bool" />
+			<param index="0" name="condition" type="bool" />
+			<param index="1" name="message" type="String" default="&quot;&quot;" />
+			<description>
+				Fails the test with [param message] if [param condition] is [code]true[/code].
+			</description>
+		</method>
+		<method name="assert_near">
+			<return type="bool" />
+			<param index="0" name="actual" type="Variant" />
+			<param index="1" name="expected" type="Variant" />
+			<param index="2" name="tolerance" type="float" default="0.001" />
+			<param index="3" name="message" type="String" default="&quot;&quot;" />
+			<description>
+				Fails the test if [param actual] is further than [param tolerance] from [param expected]. Works with numbers, [Vector2] and [Vector3]; other types are compared with [method assert_eq].
+			</description>
+		</method>
+		<method name="assert_true">
+			<return type="bool" />
+			<param index="0" name="condition" type="bool" />
+			<param index="1" name="message" type="String" default="&quot;&quot;" />
+			<description>
+				Fails the test with [param message] if [param condition] is [code]false[/code]. Returns [param condition].
+			</description>
+		</method>
+		<method name="fail">
+			<return type="void" />
+			<param index="0" name="message" type="String" />
+			<description>
+				Fails the test with [param message].
+			</description>
+		</method>
+		<method name="get_frame" qualifiers="const">
+			<return type="int" />
+			<description>
+				Returns the number of physics frames since the test started.
+			</description>
+		</method>
+		<method name="hold_action">
+			<return type="void" />
+			<param index="0" name="action" type="StringName" />
+			<description>
+				Presses the input action [param action] until [method release_action] is called or the test ends.
+			</description>
+		</method>
+		<method name="load_scene">
+			<return type="Node" />
+			<param index="0" name="path" type="String" />
+			<description>
+				Instantiates the scene at [param path], adds it to the tree and returns its root. It is freed when the test ends.
+			</description>
+		</method>
+		<method name="physics_frames">
+			<return type="Signal" />
+			<param index="0" name="frames" type="int" />
+			<description>
+				Returns a signal emitted after [param frames] physics frames.
+			</description>
+		</method>
+		<method name="press_action">
+			<return type="Signal" />
+			<param index="0" name="action" type="StringName" />
+			<param index="1" name="seconds" type="float" default="0.1" />
+			<description>
+				Presses the input action [param action] and releases it after [param seconds]. Await the returned signal to continue after the release.
+			</description>
+		</method>
+		<method name="release_action">
+			<return type="void" />
+			<param index="0" name="action" type="StringName" />
+			<description>
+				Releases the input action [param action].
+			</description>
+		</method>
+		<method name="seconds">
+			<return type="Signal" />
+			<param index="0" name="seconds" type="float" />
+			<description>
+				Returns a signal emitted after [param seconds] of simulated time, rounded to physics frames.
+			</description>
+		</method>
+		<method name="signal_or_timeout">
+			<return type="Signal" />
+			<param index="0" name="object" type="Object" />
+			<param index="1" name="signal" type="StringName" />
+			<param index="2" name="timeout" type="float" default="5.0" />
+			<description>
+				Returns a signal emitted with [code]true[/code] when [param object] emits [param signal], or with [code]false[/code] after [param timeout] seconds.
+			</description>
+		</method>
+		<method name="trace">
+			<return type="void" />
+			<param index="0" name="text" type="String" />
+			<description>
+				Adds [param text] to the trace, prefixed with the current physics frame.
+			</description>
+		</method>
+		<method name="track_body">
+			<return type="void" />
+			<param index="0" name="body" type="Node" />
+			<description>
+				Records collisions of a [CharacterBody3D] or [CharacterBody2D] in the trace, naming the exact shape node that was hit.
+			</description>
+		</method>
+	</methods>
+</class>

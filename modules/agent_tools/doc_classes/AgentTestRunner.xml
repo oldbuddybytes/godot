@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="AgentTestRunner" inherits="SceneTree" api_type="core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Main loop used by [code]--agent-test[/code].
+	</brief_description>
+	<description>
+		Runs every [code]test_*[/code] method of the scripts extending [AgentTest] in a folder (default [code]res://tests/agent[/code]), one at a time, and prints failures with their traces and a summary. Options: [code]--filter
+	</description>
+	<tutorials>
+	</tutorials>
+</class>

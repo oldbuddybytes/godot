@@ -200,7 +200,41 @@ Dictionary AgentValidator::_run(const Vector<String> &p_scripts, const Vector<St
 	for (const String &path : failed_files) {
 		_collect_affected(path, tainted);
 	}
+	// Load dependencies before the files that use them, so a file that fails to load
+	// is reported once, not again by every file that depends on it.
+	HashMap<String, Vector<String>> uses;
+	for (const KeyValue<String, HashSet<String>> &kv : dependents) {
+		for (const String &user : kv.value) {
+			uses[user].push_back(kv.key);
+		}
+	}
+	HashSet<String> is_resource;
 	for (const String &path : p_resources) {
+		is_resource.insert(path);
+	}
+	Vector<String> load_order;
+	HashSet<String> visited;
+	struct Visit {
+		static void run(const String &p_path, const HashMap<String, Vector<String>> &p_uses, const HashSet<String> &p_is_resource, HashSet<String> &r_visited, Vector<String> &r_order) {
+			if (r_visited.has(p_path)) {
+				return;
+			}
+			r_visited.insert(p_path);
+			if (const Vector<String> *deps = p_uses.getptr(p_path)) {
+				for (const String &dep : *deps) {
+					run(dep, p_uses, p_is_resource, r_visited, r_order);
+				}
+			}
+			if (p_is_resource.has(p_path)) {
+				r_order.push_back(p_path);
+			}
+		}
+	};
+	for (const String &path : p_resources) {
+		Visit::run(path, uses, is_resource, visited, load_order);
+	}
+
+	for (const String &path : load_order) {
 		if (failed_files.has(path) || tainted.has(path)) {
 			continue;
 		}
@@ -388,7 +422,7 @@ int AgentValidator::run_cli() {
 
 	const Dictionary filtered = _filter(result, max_diagnostics, errors_only);
 	if (!json_out.is_empty()) {
-		Ref<FileAccess> f = FileAccess::open(json_out, FileAccess::WRITE);
+		Ref<FileAccess> f = FileAccess::open(agent_output_path(json_out), FileAccess::WRITE);
 		if (f.is_null()) {
 			agent_write_stdout("ERROR: Could not write " + json_out);
 			return 2;

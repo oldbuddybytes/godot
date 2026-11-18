@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="AgentValidator" inherits="RefCounted" api_type="core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Checks a project's scripts, scenes and resources and groups errors by root cause.
+	</brief_description>
+	<description>
+		Validates every script (first parse error per file), every scene and resource dependency (missing files, unknown UIDs that only load through their fallback path) and resource loading. An error in a shared file is reported once, with the files it breaks in [code]affected[/code]. Used by [code]--validate-project[/code].
+		[codeblock]
+		var result = AgentValidator.new().validate_project()
+		print(AgentValidator.format_text(result))
+		[/codeblock]
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="format_text" qualifiers="static">
+			<return type="String" />
+			<param index="0" name="result" type="Dictionary" />
+			<param index="1" name="max_diagnostics" type="int" default="20" />
+			<param index="2" name="errors_only" type="bool" default="false" />
+			<description>
+				Formats a result from [method validate_project] as a short report: one summary line, then one line per diagnostic, at most [param max_diagnostics] ([code]0[/code] for all). If [param errors_only] is [code]true[/code], warnings are left out.
+			</description>
+		</method>
+		<method name="validate_paths">
+			<return type="Dictionary" />
+			<param index="0" name="paths" type="PackedStringArray" />
+			<description>
+				Like [method validate_project], but only for the given files.
+			</description>
+		</method>
+		<method name="validate_project">
+			<return type="Dictionary" />
+			<description>
+				Checks every script, scene and resource under [code]res://[/code], skipping hidden folders, folders with a [code].gdignore[/code] file and [code]res://script_templates[/code]. Returns a [Dictionary] with [code]ok[/code], [code]errors[/code], [code]warnings[/code], [code]files[/code] and [code]diagnostics[/code] (each with [code]code[/code], [code]severity[/code], [code]path[/code], optional [code]line[/code]/[code]column[/code], [code]message[/code] and [code]affected[/code]).
+			</description>
+		</method>
+	</methods>
+</class>

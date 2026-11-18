@@ -7,6 +7,7 @@
 #include "core/io/dir_access.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_uid.h"
+#include "core/os/os.h"
 #include "core/templates/vector.h"
 
 #include <cstdio>
@@ -80,4 +81,15 @@ inline void agent_write_stdout(const String &p_text) {
 	CharString utf8 = (p_text + "\n").utf8();
 	fwrite(utf8.get_data(), 1, utf8.length(), stdout);
 	fflush(stdout);
+}
+
+// Output file paths given on the command line are relative to the directory the
+// command was run from. Godot changes into the project folder at startup, so
+// resolve them against the shell's $PWD instead.
+inline String agent_output_path(const String &p_path) {
+	if (p_path.is_empty() || p_path.is_absolute_path() || p_path.contains("://")) {
+		return p_path;
+	}
+	const String pwd = OS::get_singleton()->get_environment("PWD");
+	return pwd.is_empty() ? p_path : pwd.path_join(p_path).simplify_path();
 }

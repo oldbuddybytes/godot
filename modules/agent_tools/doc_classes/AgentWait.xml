@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="AgentWait" inherits="RefCounted" api_type="core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Emits [signal done] when an [AgentTest] wait finishes.
+	</brief_description>
+	<description>
+		Returned (as its [signal done] signal) by the waits of [AgentTest]. Not meant to be created directly.
+	</description>
+	<tutorials>
+	</tutorials>
+	<signals>
+		<signal name="done">
+			<param index="0" name="value" type="Variant" />
+			<description>
+				Emitted when the wait finishes. [param value] is [code]false[/code] if a [method AgentTest.signal_or_timeout] wait timed out, otherwise [code]true[/code].
+			</description>
+		</signal>
+	</signals>
+</class>

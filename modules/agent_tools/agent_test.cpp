@@ -14,6 +14,9 @@
 #ifndef _3D_DISABLED
 #include "scene/3d/physics/character_body_3d.h"
 #endif
+#ifndef _2D_DISABLED
+#include "scene/2d/physics/character_body_2d.h"
+#endif
 
 static constexpr int MAX_TRACE = 200;
 
@@ -59,40 +62,61 @@ void AgentTest::_send_action(const StringName &p_action, bool p_pressed) {
 	trace(vformat("%s %s", p_pressed ? "press" : "release", p_action));
 }
 
+// Name of the exact shape node that was hit, e.g. "Level/Door/Blocker", not just the body.
+template <typename T>
+static String _shape_name(const AgentTest *p_test, ObjectID p_collider, int p_shape, String (AgentTest::*p_describe)(const Object *) const) {
+	T *collider = Object::cast_to<T>(ObjectDB::get_instance(p_collider));
+	if (!collider) {
+		return "unknown collider";
+	}
+	Object *shape = collider->shape_owner_get_owner(collider->shape_find_owner(p_shape));
+	return (p_test->*p_describe)(shape ? shape : collider);
+}
+
 void AgentTest::_track_collisions() {
-#ifndef _3D_DISABLED
 	for (const ObjectID &id : tracked_bodies) {
-		CharacterBody3D *body = Object::cast_to<CharacterBody3D>(ObjectDB::get_instance(id));
-		if (!body) {
-			continue;
-		}
+		Object *obj = ObjectDB::get_instance(id);
 		Vector<String> hits;
-		for (int i = 0; i < body->get_slide_collision_count(); i++) {
-			const PhysicsServer3D::MotionResult result = body->get_slide_collision(i);
-			for (int c = 0; c < result.collision_count; c++) {
-				const PhysicsServer3D::MotionCollision &collision = result.collisions[c];
-				CollisionObject3D *collider = Object::cast_to<CollisionObject3D>(ObjectDB::get_instance(collision.collider_id));
-				String name = _describe(collider);
-				if (collider) {
-					// Name the exact shape node, e.g. "Level/Door/Blocker", not just the body.
-					Object *shape = collider->shape_owner_get_owner(collider->shape_find_owner(collision.collider_shape));
-					if (shape) {
-						name = _describe(shape);
+		String position;
+		bool tracked = false;
+#ifndef _3D_DISABLED
+		if (CharacterBody3D *body = Object::cast_to<CharacterBody3D>(obj)) {
+			tracked = true;
+			position = String(body->get_global_position());
+			for (int i = 0; i < body->get_slide_collision_count(); i++) {
+				const PhysicsServer3D::MotionResult result = body->get_slide_collision(i);
+				for (int c = 0; c < result.collision_count; c++) {
+					const String name = _shape_name<CollisionObject3D>(this, result.collisions[c].collider_id, result.collisions[c].collider_shape, &AgentTest::_describe);
+					if (!hits.has(name)) {
+						hits.push_back(name);
 					}
 				}
+			}
+		}
+#endif
+#ifndef _2D_DISABLED
+		if (CharacterBody2D *body = Object::cast_to<CharacterBody2D>(obj)) {
+			tracked = true;
+			position = String(body->get_global_position());
+			for (int i = 0; i < body->get_slide_collision_count(); i++) {
+				const PhysicsServer2D::MotionResult result = body->get_slide_collision(i);
+				const String name = _shape_name<CollisionObject2D>(this, result.collider_id, result.collider_shape, &AgentTest::_describe);
 				if (!hits.has(name)) {
 					hits.push_back(name);
 				}
 			}
 		}
+#endif
+		if (!tracked) {
+			continue;
+		}
 		const String now = String(", ").join(hits);
 		const String *before = last_hits.getptr(id);
 		if ((before ? *before : String()) != now) {
-			trace(now.is_empty() ? _describe(body) + " no longer colliding" : vformat("%s hit %s at %s", _describe(body), now, body->get_global_position()));
+			trace(now.is_empty() ? _describe(obj) + " no longer colliding" : vformat("%s hit %s at %s", _describe(obj), now, position));
 			last_hits[id] = now;
 		}
 	}
-#endif
 }
 
 Variant AgentTest::_on_awaited_signal(const Variant **p_args, int p_argcount, Callable::CallError &r_error) {

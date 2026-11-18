@@ -43,7 +43,10 @@ class AgentTest : public Node {
 	Wait &_add_wait(int p_frames);
 	Signal _signal_of(const Wait &p_wait) const;
 	int _frames_for(double p_seconds) const;
+public:
 	String _describe(const Object *p_object) const;
+
+private:
 	void _send_action(const StringName &p_action, bool p_pressed);
 	void _track_collisions();
 	Variant _on_awaited_signal(const Variant **p_args, int p_argcount, Callable::CallError &r_error);

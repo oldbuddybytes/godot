@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="AgentInspector" inherits="RefCounted" api_type="core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Explains where saved property values come from, and who uses a scene or resource.
+	</brief_description>
+	<description>
+		Answers questions such as "why does this door have collision layer 4?" by listing every saved layer that sets a property, highest priority first: this scene, then inherited and instanced scenes, then the script default, then the class default. Values set by scripts at runtime can't be traced; [method explain_property] reports the live value next to the saved one. Used by [code]--explain-property[/code], [code]--find-overrides[/code] and [code]--resource-users[/code].
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="explain_property" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="node" type="Node" />
+			<param index="1" name="property" type="StringName" />
+			<description>
+				Explains [param property] on a live [param node] using the scene file it was loaded from, and adds [code]runtime_value[/code] and [code]changed_at_runtime[/code].
+			</description>
+		</method>
+		<method name="explain_scene_property" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="scene" type="String" />
+			<param index="1" name="node_path" type="NodePath" />
+			<param index="2" name="property" type="StringName" />
+			<description>
+				Explains [param property] on the node at [param node_path] (relative to the root, [code]"."[/code] for the root) in the scene file [param scene]. Returns a [Dictionary] with [code]value[/code], [code]layers[/code] (each with [code]value[/code], [code]source[/code] and [code]kind[/code]) and optional [code]notes[/code], or [code]error[/code].
+			</description>
+		</method>
+		<method name="find_overrides" qualifiers="static">
+			<return type="Array" />
+			<param index="0" name="scene" type="String" />
+			<description>
+				Lists every scene that instances or inherits [param scene], and the properties each one overrides, including overrides of child nodes through editable children.
+			</description>
+		</method>
+		<method name="format_explain" qualifiers="static">
+			<return type="String" />
+			<param index="0" name="result" type="Dictionary" />
+			<description>
+				Formats a result from [method explain_scene_property] as a short report; the winning layer is marked with [code]&gt;[/code].
+			</description>
+		</method>
+		<method name="resource_users" qualifiers="static">
+			<return type="Array" />
+			<param index="0" name="resource" type="String" />
+			<description>
+				Lists every scene or resource file that references [param resource], with the node properties that use it.
+			</description>
+		</method>
+	</methods>
+</class>
