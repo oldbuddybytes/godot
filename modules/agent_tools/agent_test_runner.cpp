@@ -18,7 +18,7 @@ static constexpr uint64_t TEST_SEED = 0x5eed;
 
 void AgentTestRunner::_on_error(void *p_self, const char *p_function, const char *p_file, int p_line, const char *p_error, const char *p_message, bool p_editor_notify, ErrorHandlerType p_type) {
 	AgentTestRunner *self = static_cast<AgentTestRunner *>(p_self);
-	if (p_type == ERR_HANDLER_WARNING || !self->current || self->script_errors.size() >= 3) {
+	if (p_type == ERR_HANDLER_WARNING || (!self->current && !self->loading) || self->script_errors.size() >= 3) {
 		return;
 	}
 	String text = String::utf8((p_message && *p_message) ? p_message : p_error);
@@ -56,12 +56,34 @@ void AgentTestRunner::initialize() {
 		}
 	}
 
+	// Errors are reported per test instead of being printed.
+	error_handler.errfunc = _on_error;
+	error_handler.userdata = this;
+	add_error_handler(&error_handler);
+	was_printing_errors = Engine::get_singleton()->is_printing_error_messages();
+	Engine::get_singleton()->set_print_error_messages(false);
+
 	Vector<String> files;
 	agent_collect_files(dir, { "gd" }, files);
 	files.sort();
 	for (const String &path : files) {
+		loading = true;
+		script_errors.clear();
 		Ref<Script> script = ResourceLoader::load(path, "Script");
-		if (script.is_null() || !ClassDB::is_parent_class(script->get_instance_base_type(), "AgentTest")) {
+		loading = false;
+		if (script.is_null() || !script->is_valid()) {
+			// A broken test script must fail the run, not be skipped silently.
+			Dictionary r;
+			r["file"] = path;
+			r["test"] = "(load)";
+			r["passed"] = false;
+			r["frames"] = 0;
+			r["message"] = "Could not load test script" + (script_errors.is_empty() ? String() : ": " + script_errors[0]);
+			results.push_back(r);
+			failed_count++;
+			continue;
+		}
+		if (!ClassDB::is_parent_class(script->get_instance_base_type(), "AgentTest")) {
 			continue;
 		}
 		List<MethodInfo> methods;
@@ -78,19 +100,12 @@ void AgentTestRunner::initialize() {
 		}
 	}
 
-	if (cases.is_empty()) {
+	script_errors.clear();
+	if (cases.is_empty() && results.is_empty()) {
 		agent_write_stdout(vformat("ERROR: No tests found in %s (scripts extending AgentTest with test_* methods).", dir));
 		finished = true;
 		quit(2);
-		return;
 	}
-
-	// Errors are reported per test instead of being printed.
-	error_handler.errfunc = _on_error;
-	error_handler.userdata = this;
-	add_error_handler(&error_handler);
-	was_printing_errors = Engine::get_singleton()->is_printing_error_messages();
-	Engine::get_singleton()->set_print_error_messages(false);
 }
 
 void AgentTestRunner::_start_next() {

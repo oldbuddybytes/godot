@@ -66,6 +66,12 @@
 				Returns the number of physics frames since the test started.
 			</description>
 		</method>
+		<method name="get_trace" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+				Returns the trace so far (newest last, at most 200 lines), e.g. to assert that a collision happened.
+			</description>
+		</method>
 		<method name="hold_action">
 			<return type="void" />
 			<param index="0" name="action" type="StringName" />

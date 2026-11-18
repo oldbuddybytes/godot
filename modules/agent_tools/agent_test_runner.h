@@ -38,6 +38,7 @@ class AgentTestRunner : public SceneTree {
 	ErrorHandlerList error_handler;
 	Vector<String> script_errors;
 	bool was_printing_errors = true;
+	bool loading = false; // Collect errors while loading test scripts.
 
 	static void _on_error(void *p_self, const char *p_function, const char *p_file, int p_line, const char *p_error, const char *p_message, bool p_editor_notify, ErrorHandlerType p_type);
 	void _start_next();

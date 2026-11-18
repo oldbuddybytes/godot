@@ -351,5 +351,6 @@ void AgentTest::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("track_body", "body"), &AgentTest::track_body);
 	ClassDB::bind_method(D_METHOD("trace", "text"), &AgentTest::trace);
 	ClassDB::bind_method(D_METHOD("get_frame"), &AgentTest::get_frame);
+	ClassDB::bind_method(D_METHOD("get_trace"), &AgentTest::get_trace);
 	ClassDB::bind_vararg_method(METHOD_FLAGS_DEFAULT, "_on_awaited_signal", &AgentTest::_on_awaited_signal, MethodInfo("_on_awaited_signal"));
 }

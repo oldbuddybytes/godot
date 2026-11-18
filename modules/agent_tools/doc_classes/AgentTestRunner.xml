@@ -4,7 +4,7 @@
 		Main loop used by [code]--agent-test[/code].
 	</brief_description>
 	<description>
-		Runs every [code]test_*[/code] method of the scripts extending [AgentTest] in a folder (default [code]res://tests/agent[/code]), one at a time, and prints failures with their traces and a summary. Options: [code]--filter &lt;name&gt;[/code], [code]--test-timeout &lt;seconds&gt;[/code], [code]--json[/code], [code]--json-out &lt;file&gt;[/code], [code]--junit-out &lt;file&gt;[/code], [code]--screenshot-dir &lt;dir&gt;[/code] and [code]--screenshot-scale &lt;factor&gt;[/code]. Exits with [code]1[/code] if a test failed. Not meant to be used directly.
+		Runs every [code]test_*[/code] method of the scripts extending [AgentTest] in a folder (default [code]res://tests/agent[/code]), one at a time, and prints failures with their traces and a summary. Options: [code]--filter &lt;name&gt;[/code], [code]--test-timeout &lt;seconds&gt;[/code], [code]--json[/code], [code]--json-out &lt;file&gt;[/code], [code]--junit-out &lt;file&gt;[/code], [code]--screenshot-dir &lt;dir&gt;[/code] and [code]--screenshot-scale &lt;factor&gt;[/code]. A test script that fails to load is reported as a failed test. Exits with [code]1[/code] if a test failed. Not meant to be used directly.
 	</description>
 	<tutorials>
 	</tutorials>
