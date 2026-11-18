@@ -1,11 +1,11 @@
 ---
 id: 2026-11-18-agent-motion-analyzer
 title: Add --analyze-animation motion analyzer to agent_tools
-status: Planned             # Planned | Agreed | In Progress | In Review | Changes Requested | Done | Blocked
-baseline_sha: d0efd68fcee1fd0a2e353eff8bdbebd3ab9e3576
+status: In Progress         # Planned | Agreed | In Progress | In Review | Changes Requested | Done | Blocked
+baseline_sha: 95d5f0b1cb31ce0ed685e0a63b0d21ae44d95406
 planner: Claude Code (Opus 5.5)
-plan_checker: Codex Desktop (GPT 5.5)
-executor: Cursor (Composer)
+plan_checker: Human (project owner)
+executor: Claude Code (Opus 5.5)
 reviewer: Claude Desktop or Codex Desktop (whichever did not plan-check)
 created: 2026-11-18
 updated: 2026-11-18
@@ -36,12 +36,12 @@ res://chars/guard.tscn --json` lists every defect found in every clip in that
 scene and exits non-zero when there are errors or warnings, in the same style as
 `--validate-project`.
 
-**Precondition:** the working tree at `baseline_sha` has uncommitted
-agent_tools changes (`agent_common.h`, `agent_test*.{h,cpp}`,
-`agent_test_runner.cpp`, `agent_validator.cpp`, `config.py`,
-`tests/test_agent_tools.h`, and untracked `doc_classes/`). Those must be
-committed to the `agent-tools` branch first. The planner then re-records
-`baseline_sha`, so this task's diff contains only this task's changes.
+`baseline_sha` is `95d5f0b1cb` ("Add a usage guide for agent_tools"). At that
+commit the working tree is clean and `agent-tools` matches `origin`, so the
+task's diff contains only this task's changes. Since the first draft of this
+plan, the module gained `--offscreen` rendering, `screenshot()`/`pick()`,
+`--unattended` and `modules/agent_tools/README.md`. The analyzer has to fit
+alongside them, including in that README.
 
 ## Approach
 
@@ -176,6 +176,38 @@ godot --headless --path <project> --analyze-animation <scene> [<scene> ...]
 - Engine errors raised while loading are captured with `ErrorCapture` and
   reported as `ANIM_LOAD_ERROR`, never printed raw.
 
+### Documentation
+
+The feature isn't done until it's documented in all three places agents and
+people look:
+
+1. **`modules/agent_tools/README.md`**, the usage guide:
+   - Add a row to the "I want to..." table: "Check a skeletal animation for
+     sliding feet, loop pops and broken tracks" → `--analyze-animation`.
+   - Add a `## Check animations: --analyze-animation` section after
+     "Gameplay tests" and before "Screenshots and picking". Match the existing
+     sections: one-paragraph summary, a `$GODOT ...` command, a real text
+     output sample copied from a fixture run (not invented), the options, and a
+     table of codes with severity and a one-line meaning. Explain how "ground"
+     and foot bones are found, the in-place behaviour, the scale reference,
+     and the `--feet` override.
+   - Add "From GDScript": `AgentMotionAnalyzer.new().analyze(skeleton, animation, options)`
+     and `.analyze_scene(path, options)`, plus a short `AgentTest` example
+     that asserts a clip has no warnings.
+   - Update the exit-code table. Row 2 currently says only `--validate-project`
+     couldn't run; it must cover `--analyze-animation` too (unreadable scene,
+     no clips matched, bad arguments).
+   - Add a Gotchas bullet: results describe the clip on its rest skeleton, so
+     IK modifiers, AnimationTree blending and `RESET` aren't applied.
+2. **`doc_classes/AgentMotionAnalyzer.xml`**: generated with `--doctool`, then
+   every description is filled in. That covers the class, each method, each
+   `options` key with its default, and the result dictionary's keys. `<` and
+   `>` are escaped as the README's "Developing the module" section says. No
+   other XML in `doc_classes/` or `doc/classes/` may change.
+3. **`godot --help`**: one `print_help_option` line for `--analyze-animation`,
+   placed with the other agent_tools options in `main/main.cpp`, listing its
+   options and exit codes in the same style as `--validate-project`.
+
 ### Files touched
 
 Inside this repo:
@@ -185,13 +217,14 @@ Inside this repo:
 - `modules/agent_tools/register_types.cpp`, `modules/agent_tools/config.py`: register and document the class
 - `modules/agent_tools/doc_classes/AgentMotionAnalyzer.xml` (new)
 - `modules/agent_tools/tests/test_agent_tools.h`: unit tests
+- `modules/agent_tools/README.md`: usage guide section, table row, exit codes, gotcha
 - `main/main.cpp`: add `--analyze-animation` to the existing `MODULE_AGENT_TOOLS_ENABLED` flag branch (same `editor`/`cmdline_tool`/`wait_for_import`/`quit_after` setup as `--validate-project`) and one `print_help_option` line
 - `plans/2026-11-18-agent-motion-analyzer.md` (this file)
 
 Outside this repo, so the reviewer must check them separately, not through
 `git diff`:
 - `../test-project/anim/`: fixture scenes, plus `make_fixtures.gd`, the script that generates them
-- `../check.sh`: new `phase4` (the usage line already mentions `phase4`; the `case` doesn't handle it yet), added to `all`
+- `../check.sh`: new `phase6` (phases 1–5 exist), added to the usage line and to `all`
 
 ### Ruled out
 
@@ -237,7 +270,18 @@ Outside this repo, so the reviewer must check them separately, not through
   - [ ] `--json` output parses as JSON and has the keys listed in Approach;
   - [ ] two runs on the same input give byte-identical output.
 - [ ] No raw engine error lines appear in the CLI output for the broken fixture.
-- [ ] `./check.sh all` passes, including the existing phase1–3 checks, which
+- [ ] Documentation, as described in Approach → Documentation:
+  - [ ] `README.md` has the table row, the `--analyze-animation` section with a
+        real output sample, the GDScript and `AgentTest` usage, the updated
+        exit-code table and the gotcha;
+  - [ ] every code the analyzer can emit appears in the README's code table and
+        in `AgentMotionAnalyzer.xml`, and no code is listed that the analyzer
+        can't emit;
+  - [ ] `AgentMotionAnalyzer.xml` has no empty `<description>` elements;
+  - [ ] after running `--doctool .`, `git status` shows no changes outside
+        this task's files;
+  - [ ] `godot --help` lists `--analyze-animation` with its options.
+- [ ] `./check.sh all` passes, including the existing phase1–5 checks, which
       are unchanged.
 - [ ] Every changed file in `git diff <baseline_sha>..HEAD` is in the "Files
       touched" list.
@@ -252,6 +296,8 @@ Outside this repo, so the reviewer must check them separately, not through
   blending, and the `RESET` animation.
 - 2D skeletons (`Skeleton2D`), blend shapes, value/method/Bezier tracks.
 - Filmstrip or contact-sheet rendering, BVH import, animation mirroring.
+  (`--offscreen` and `screenshot()` now exist, so a filmstrip is the natural
+  next task after this one.)
 - `AgentTest` helpers such as `track_bone`; scripts can call
   `AgentMotionAnalyzer` directly in this task.
 - Automatically fixing clips. The analyzer only reports.
@@ -261,16 +307,20 @@ Outside this repo, so the reviewer must check them separately, not through
 
 Known useful commands in this repo (run from `/Users/jason/projects/godot-engine`):
 - `./check.sh`: incremental build (`scons platform=macos target=editor dev_build=yes tests=yes vulkan=no -j8`) plus `[AgentTools]` unit tests
-- `./check.sh phase4`: build, unit tests, and the new CLI checks
+- `./check.sh phase6`: build, unit tests, and the new CLI checks
 - `./check.sh all`: every phase
 - `godot/bin/godot.macos.editor.dev.arm64 --test --test-case="*[AgentTools]*"`: unit tests only
 - `godot/bin/godot.macos.editor.dev.arm64 --headless --path test-project --script res://anim/make_fixtures.gd`: regenerate fixtures
+- `(cd godot && bin/godot.macos.editor.dev.arm64 --doctool .)`: regenerate class XML after changing bound methods
 
 Expected verification for this task:
-- [ ] `./check.sh all` passes (build ok, unit tests pass, phase1–4 ok).
+- [ ] `./check.sh all` passes (build ok, unit tests pass, phase1–6 ok).
 - [ ] Manual run: `godot/bin/godot.macos.editor.dev.arm64 --headless --quiet --path test-project --analyze-animation res://anim/broken_walk.tscn`. Read the text output and confirm each diagnostic names a bone, a time range and value > threshold.
 - [ ] Manual run of the same command with `--json`, piped to `python3 -m json.tool`. Confirm it parses.
 - [ ] Manual run on a real imported humanoid (any Mixamo or Kimodo-derived `.glb` placed in `test-project/anim/`, not committed). Confirm it completes in under 2 seconds and the findings are plausible. Note the result in the Execution log.
+- [ ] Run `--doctool .`, then `git -C godot status`: no changes outside "Files touched".
+- [ ] Read the new README section start to finish. Run its `$GODOT` example as written and confirm the output matches the sample.
+- [ ] `godot/bin/godot.macos.editor.dev.arm64 --help | grep -A1 analyze-animation` shows the option.
 - [ ] `git -C godot diff --stat <baseline_sha>..HEAD` lists only files from "Files touched".
 
 ## Child tasks (optional)
@@ -282,9 +332,9 @@ Each role ticks its box ONLY after reading the planner-owned sections above
 (Context, Approach, Acceptance criteria, Out of scope, Commands / verification)
 AND writing a one-sentence restatement in its own words.
 
-- [x] **Planner** (Claude Code, Opus 5.5) — 2026-11-18 — "Add a headless `--analyze-animation` command and scriptable `AgentMotionAnalyzer` class that samples each skeletal clip on its rest skeleton with its own forward kinematics. It reports foot slide, ground penetration, loop seams and drift, rotation spikes, bone stretch and unresolved tracks as validator-style diagnostics with times, frames and bones, so agents can check motion they can't watch."
-- [ ] **Plan checker** (<tool/model>) — <date> — "<restatement / explicit agreement>"
-- [ ] **Executor** (<tool/model>) — <date> — "<restatement before starting code>"
+- [x] **Planner** (Claude Code, Opus 5.5) — 2026-11-18 — "Add a headless `--analyze-animation` command and scriptable `AgentMotionAnalyzer` class that samples each skeletal clip on its rest skeleton with its own forward kinematics. It reports foot slide, ground penetration, loop seams and drift, rotation spikes, bone stretch and unresolved tracks as validator-style diagnostics with times, frames and bones, so agents can check motion they can't watch. It's documented in the module README, the class XML and `--help`."
+- [x] **Plan checker** (Human, project owner) — 2026-11-18 — Approved in chat ("I'll approve it myself") after the revision that added the Documentation section and phase6; no separate restatement was written.
+- [x] **Executor** (Claude Code, Opus 5.5) — 2026-11-18 — "I'll build `AgentMotionAnalyzer` and `--analyze-animation`, which evaluate each clip's bone tracks on the rest skeleton with offline forward kinematics. They report the listed ANIM_* codes with bone, time and frame ranges in the validator's result shape, and I'll prove it with in-memory unit tests, generated fixture scenes and check.sh phase6. I'll document it in the README, the class XML and --help, touching only the files listed."
 - [ ] **Reviewer** (<tool/model>) — <date> — "<restatement after seeing the diff>"
 
 If your restatement contradicts the previous tool's, DO NOT tick the box. Add a
@@ -294,6 +344,8 @@ planner.
 ## Execution log
 Append-only. Executor writes here. One bullet per meaningful step, commit, or
 deviation. No rewrites.
+
+- 2026-11-18 — Plan approved by the project owner in chat (status Planned → Agreed). Executor changed from Cursor to Claude Code at the owner's request. Status → In Progress.
 
 ## Review
 Filled in by reviewer at the end.
