@@ -10,4 +10,6 @@ protected:
 
 public:
 	static String get_version();
+	// Runs a command-line flag such as "--validate-project"; returns the exit code.
+	static int run_command(const String &p_command);
 };

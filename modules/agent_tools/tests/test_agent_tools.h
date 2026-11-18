@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../agent_inspector.h"
 #include "../agent_tools.h"
 #include "../agent_validator.h"
 
@@ -46,6 +47,33 @@ TEST_CASE("[AgentTools] Validator text report groups and truncates") {
 
 	const String capped = AgentValidator::format_text(result, 1);
 	CHECK(capped.contains("(+1 more not shown"));
+}
+
+TEST_CASE("[AgentTools] Inspector explain report marks the winning layer") {
+	Dictionary own;
+	own["value"] = "4";
+	own["source"] = "res://level.tscn";
+	own["kind"] = "instance override";
+	Dictionary base;
+	base["value"] = "2";
+	base["source"] = "res://door.tscn";
+	base["kind"] = "base scene";
+
+	Dictionary result;
+	result["scene"] = "res://level.tscn";
+	result["node"] = "FrontDoor";
+	result["property"] = "collision_layer";
+	result["value"] = "4";
+	result["layers"] = Array({ own, base });
+
+	const String text = AgentInspector::format_explain(result);
+	CHECK(text.begins_with("res://level.tscn FrontDoor:collision_layer = 4"));
+	CHECK(text.contains("> 4  res://level.tscn (instance override)"));
+	CHECK(text.contains("  2  res://door.tscn (base scene)"));
+
+	Dictionary error;
+	error["error"] = "Node Nope not found";
+	CHECK(AgentInspector::format_explain(error) == "ERROR Node Nope not found");
 }
 
 } // namespace TestAgentTools

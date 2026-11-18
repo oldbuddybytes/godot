@@ -150,7 +150,7 @@
 #endif
 
 #if defined(MODULE_AGENT_TOOLS_ENABLED) && defined(TOOLS_ENABLED)
-#include "modules/agent_tools/agent_validator.h"
+#include "modules/agent_tools/agent_tools.h"
 #endif
 
 #ifdef MODULE_GDSCRIPT_ENABLED
@@ -231,7 +231,7 @@ static bool recovery_mode = false;
 static bool auto_build_solutions = false;
 static String debug_server_uri;
 static bool wait_for_import = false;
-static bool agent_validate_project = false; // agent_tools: --validate-project
+static String agent_tools_command; // agent_tools: --validate-project, --explain-property, ...
 static bool restore_editor_window_layout = true;
 #ifndef DISABLE_DEPRECATED
 static int converter_max_kb_file = 4 * 1024; // 4MB
@@ -705,6 +705,9 @@ void Main::print_help(const char *p_binary) {
 	print_help_option("--import", "Starts the editor, waits for any resources to be imported, and then quits.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 #ifdef MODULE_AGENT_TOOLS_ENABLED
 	print_help_option("--validate-project", "Import, then check all scripts, scenes and resources and quit. Options: --json, --json-out <file>, --max-diagnostics <n> (0 = all), --only errors. Exit code 0 = clean, 1 = errors.\n", CLI_OPTION_AVAILABILITY_EDITOR);
+	print_help_option("--explain-property <scene> <node> <property>", "Show every saved layer that sets a node property (this scene, base scenes, script and class defaults) and quit. Add --json for JSON.\n", CLI_OPTION_AVAILABILITY_EDITOR);
+	print_help_option("--find-overrides <scene>", "List every place that instances or inherits a scene, with the properties it overrides, and quit.\n", CLI_OPTION_AVAILABILITY_EDITOR);
+	print_help_option("--resource-users <path>", "List every scene or resource that references a file, with the node properties using it, and quit.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 #endif
 	print_help_option("--export-release <preset> <path>", "Export the project in release mode using the given preset and output path. The preset name should match one defined in \"export_presets.cfg\".\n", CLI_OPTION_AVAILABILITY_EDITOR);
 	print_help_option("", "<path> should be absolute or relative to the project directory, and include the filename for the binary (e.g. \"builds/game.exe\").\n");
@@ -1694,12 +1697,13 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 			wait_for_import = true;
 			quit_after = 1;
 #ifdef MODULE_AGENT_TOOLS_ENABLED
-		} else if (arg == "--validate-project") {
+		} else if (arg == "--validate-project" || arg == "--explain-property" || arg == "--find-overrides" || arg == "--resource-users") {
 			editor = true;
 			cmdline_tool = true;
 			wait_for_import = true;
 			quit_after = 1;
-			agent_validate_project = true;
+			agent_tools_command = arg;
+			main_args.push_back(arg); // The module reads its own arguments from the command line.
 #endif
 		} else if (arg == "--export-release" || arg == "--export-debug" ||
 				arg == "--export-pack" || arg == "--export-patch") { // Export project
@@ -4630,6 +4634,11 @@ int Main::start() {
 				editor_node->export_preset(_export_preset, positional_arg, export_debug, export_pack_only, install_android_build_template, export_patch, patches);
 				game_path = ""; // Do not load anything.
 			}
+#ifdef MODULE_AGENT_TOOLS_ENABLED
+			if (!agent_tools_command.is_empty()) {
+				game_path = ""; // Scene paths are arguments to the agent_tools command, not scenes to open.
+			}
+#endif
 
 			OS::get_singleton()->benchmark_end_measure("Startup", "Editor");
 		}
@@ -5212,9 +5221,9 @@ bool Main::iteration() {
 
 #ifdef TOOLS_ENABLED
 #ifdef MODULE_AGENT_TOOLS_ENABLED
-	if (exit && agent_validate_project) {
-		agent_validate_project = false;
-		OS::get_singleton()->set_exit_code(AgentValidator::run_cli());
+	if (exit && !agent_tools_command.is_empty()) {
+		OS::get_singleton()->set_exit_code(AgentTools::run_command(agent_tools_command));
+		agent_tools_command = String();
 	}
 #endif
 	if (exit && quit_after_timeout && EditorNode::get_singleton()) {

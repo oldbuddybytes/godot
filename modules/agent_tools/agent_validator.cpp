@@ -1,5 +1,7 @@
 #include "agent_validator.h"
 
+#include "agent_common.h"
+
 #include "core/config/engine.h"
 #include "core/error/error_list.h"
 #include "core/error/error_macros.h"
@@ -12,39 +14,8 @@
 #include "core/object/script_language.h"
 #include "core/os/os.h"
 
-#include <cstdio>
 
 namespace {
-
-// Captures engine errors printed while it is alive, and keeps them off the console.
-struct ErrorCapture {
-	ErrorHandlerList handler;
-	Vector<String> messages;
-	bool was_printing = true;
-
-	static void _on_error(void *p_self, const char *p_function, const char *p_file, int p_line, const char *p_error, const char *p_message, bool p_editor_notify, ErrorHandlerType p_type) {
-		if (p_type == ERR_HANDLER_WARNING) {
-			return;
-		}
-		ErrorCapture *self = static_cast<ErrorCapture *>(p_self);
-		if (self->messages.size() < 5) {
-			self->messages.push_back(String::utf8((p_message && *p_message) ? p_message : p_error));
-		}
-	}
-
-	ErrorCapture() {
-		handler.errfunc = _on_error;
-		handler.userdata = this;
-		add_error_handler(&handler);
-		was_printing = Engine::get_singleton()->is_printing_error_messages();
-		Engine::get_singleton()->set_print_error_messages(false);
-	}
-
-	~ErrorCapture() {
-		remove_error_handler(&handler);
-		Engine::get_singleton()->set_print_error_messages(was_printing);
-	}
-};
 
 bool _is_resource_ext(const String &p_ext) {
 	return p_ext == "tscn" || p_ext == "scn" || p_ext == "tres" || p_ext == "res";
@@ -62,12 +33,6 @@ ScriptLanguage *_language_for_ext(const String &p_ext) {
 
 bool _exists(const String &p_path) {
 	return ResourceLoader::exists(p_path) || FileAccess::exists(p_path);
-}
-
-void _write_stdout(const String &p_text) {
-	CharString utf8 = (p_text + "\n").utf8();
-	fwrite(utf8.get_data(), 1, utf8.length(), stdout);
-	fflush(stdout);
 }
 
 } // namespace
@@ -417,7 +382,7 @@ int AgentValidator::run_cli() {
 	validator.instantiate();
 	const Dictionary result = validator->validate_project();
 	if (int(result["files"]) == 0) {
-		_write_stdout("ERROR: No project files found to validate.");
+		agent_write_stdout("ERROR: No project files found to validate.");
 		return 2;
 	}
 
@@ -425,12 +390,12 @@ int AgentValidator::run_cli() {
 	if (!json_out.is_empty()) {
 		Ref<FileAccess> f = FileAccess::open(json_out, FileAccess::WRITE);
 		if (f.is_null()) {
-			_write_stdout("ERROR: Could not write " + json_out);
+			agent_write_stdout("ERROR: Could not write " + json_out);
 			return 2;
 		}
 		f->store_string(JSON::stringify(filtered, "", false));
 	}
-	_write_stdout(json ? JSON::stringify(filtered, "", false) : format_text(result, max_diagnostics, errors_only));
+	agent_write_stdout(json ? JSON::stringify(filtered, "", false) : format_text(result, max_diagnostics, errors_only));
 	return bool(result["ok"]) ? 0 : 1;
 }
 
