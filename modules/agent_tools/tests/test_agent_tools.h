@@ -4,9 +4,12 @@
 #include "../agent_inspector.h"
 #include "../agent_test.h"
 #include "../agent_tools.h"
+#include "../agent_unattended.h"
 #include "../agent_validator.h"
 
 #include "core/object/class_db.h"
+#include "core/object/message_queue.h"
+#include "scene/gui/dialogs.h"
 #include "scene/main/scene_tree.h"
 #include "scene/main/window.h"
 #include "tests/signal_watcher.h"
@@ -161,6 +164,103 @@ TEST_CASE("[AgentTools][SceneTree] AgentTest assertions keep the first failure")
 	CHECK(test->get_trace().size() == 2);
 	CHECK(test->get_trace()[1].ends_with("FAIL later failure"));
 	memdelete(test);
+}
+
+// One emission of a signal with no arguments.
+inline Array no_arg_emission() {
+	Array emissions;
+	emissions.push_back(Array());
+	return emissions;
+}
+
+TEST_CASE("[AgentTools] Unattended rules must name the dialog") {
+	AgentUnattended::Rule rule;
+	CHECK(AgentUnattended::parse_rule("Select lightmap*=OK", rule).is_empty());
+	CHECK(rule.pattern == "Select lightmap*");
+	CHECK(rule.action == "ok");
+	CHECK_FALSE(AgentUnattended::parse_rule("*=ok", rule).is_empty());
+	CHECK_FALSE(AgentUnattended::parse_rule("*a?b*=ok", rule).is_empty());
+	CHECK_FALSE(AgentUnattended::parse_rule("Probe*=yes", rule).is_empty());
+	CHECK_FALSE(AgentUnattended::parse_rule("Probe", rule).is_empty());
+	CHECK(AgentUnattended::suggest_rule("Save *all*?", "", "ok") == "--dialog-answer \"Save ?all??*=ok\"");
+	CHECK(AgentUnattended::suggest_rule("Please Confirm...", "File \"a.lmbake\" already exists.\nOverwrite?", "ok") == "--dialog-answer \"Please Confirm...*File ?a.lmbake? already exists. Overwrite?*=ok\"");
+}
+
+TEST_CASE("[AgentTools][SceneTree] Unattended records dialogs and answers only matching rules") {
+	Window *root = SceneTree::get_singleton()->get_root();
+	ConfirmationDialog *early = memnew(ConfirmationDialog); // In the tree before setup.
+	early->set_title("Probe early");
+	root->add_child(early);
+
+	Vector<AgentUnattended::Rule> rules;
+	AgentUnattended::Rule rule;
+	REQUIRE(AgentUnattended::parse_rule("Probe ok*=ok", rule).is_empty());
+	rules.push_back(rule);
+	REQUIRE(AgentUnattended::parse_rule("*Probe cancel*=cancel", rule).is_empty());
+	rules.push_back(rule);
+	AgentUnattended *unattended = memnew(AgentUnattended);
+	unattended->setup(SceneTree::get_singleton(), rules, String(), false);
+
+	ConfirmationDialog *ok_dialog = memnew(ConfirmationDialog);
+	ok_dialog->set_title("Probe ok");
+	ok_dialog->set_text("Continue?");
+	root->add_child(ok_dialog);
+	ConfirmationDialog *cancel_dialog = memnew(ConfirmationDialog);
+	cancel_dialog->set_title("Probe cancel");
+	root->add_child(cancel_dialog);
+
+	SIGNAL_WATCH(ok_dialog, "confirmed");
+	SIGNAL_WATCH(cancel_dialog, "canceled");
+	SIGNAL_WATCH(early, "confirmed");
+	SIGNAL_WATCH(early, "canceled");
+
+	ok_dialog->popup_centered();
+	MessageQueue::get_singleton()->flush();
+	cancel_dialog->popup_centered();
+	MessageQueue::get_singleton()->flush();
+	SIGNAL_CHECK("confirmed", no_arg_emission());
+	SIGNAL_CHECK("canceled", no_arg_emission());
+	CHECK_FALSE(unattended->has_failed());
+	CHECK(unattended->get_answered_count() == 2);
+
+	// No rule matches: nothing is clicked, and the run is marked failed.
+	early->popup_centered();
+	MessageQueue::get_singleton()->flush();
+	SIGNAL_CHECK_FALSE("confirmed");
+	SIGNAL_CHECK_FALSE("canceled");
+	CHECK(early->is_visible());
+	CHECK(unattended->has_failed());
+
+	Array records = unattended->get_records();
+	REQUIRE(records.size() == 3);
+	Dictionary first = records[0];
+	CHECK(String(first["title"]) == "Probe ok");
+	CHECK(String(first["text"]) == "Continue?");
+	CHECK(String(first["class"]) == "ConfirmationDialog");
+	CHECK(String(first["action"]) == "ok");
+	CHECK(int(first["rule"]) == 1);
+	Array buttons = first["buttons"];
+	REQUIRE(buttons.size() == 2); // The order depends on the platform.
+	Dictionary labels;
+	for (const Variant &b : buttons) {
+		labels[Dictionary(b)["role"]] = Dictionary(b)["label"];
+	}
+	CHECK(String(labels.get("ok", "")) == "OK");
+	CHECK(String(labels.get("cancel", "")) == "Cancel");
+	Dictionary last = records[2];
+	CHECK(String(last["action"]) == "quit");
+	CHECK(last["rule"].get_type() == Variant::NIL);
+	CHECK(String(last["suggest"]) == "--dialog-answer \"Probe early*=ok\"");
+	CHECK(unattended->get_summary() == "unattended: 3 dialogs, 2 answered by rule, 1 stopped the run");
+
+	SIGNAL_UNWATCH(ok_dialog, "confirmed");
+	SIGNAL_UNWATCH(cancel_dialog, "canceled");
+	SIGNAL_UNWATCH(early, "confirmed");
+	SIGNAL_UNWATCH(early, "canceled");
+	memdelete(ok_dialog);
+	memdelete(cancel_dialog);
+	memdelete(early);
+	memdelete(unattended);
 }
 
 } // namespace TestAgentTools

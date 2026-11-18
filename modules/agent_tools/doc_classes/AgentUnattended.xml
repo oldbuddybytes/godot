@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="AgentUnattended" inherits="Object" api_type="core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Stops scripted runs from waiting forever on dialogs nobody will click.
+	</brief_description>
+	<description>
+		Created when Godot is started with [code]--unattended[/code], for scripted editor or game runs such as baking or exporting from a shell script. Every [AcceptDialog] is watched, which includes [ConfirmationDialog], [FileDialog] and the editor's file dialogs. When one opens, a [code]DIALOG[/code] line with its title, text, buttons and the script line that opened it is printed to stderr.
+		If a [code]--dialog-answer "&lt;pattern&gt;=ok|cancel"[/code] rule matches the dialog's title or text (a case-insensitive [method String.matchn] pattern; rules are checked in order and can be repeated), that button is pressed on the next frame. Custom buttons such as "Don't Save" are never pressed. A pattern needs at least 4 characters that aren't wildcards, so a catch-all like [code]*=ok[/code] is refused at startup.
+		If no rule matches, nothing is pressed: a [code]suggest:[/code] line shows a rule that would answer the dialog, and Godot quits with exit code 3, even if a script quits with another code afterwards. Check what a button does before adding a rule for it.
+		With [code]--dialog-log &lt;file&gt;[/code], each dialog is also written as one JSON line with [code]title[/code], [code]text[/code], [code]class[/code], [code]node[/code], [code]buttons[/code] (each with [code]label[/code] and [code]role[/code]: [code]ok[/code], [code]cancel[/code] or [code]custom[/code]), [code]file_path[/code] for file dialogs, [code]script_backtrace[/code], [code]frame[/code], [code]action[/code] ([code]ok[/code], [code]cancel[/code] or [code]quit[/code]), [code]rule[/code] (1-based, or [code]null[/code]) and [code]suggest[/code]. A relative path is relative to the directory the command was run from. A summary line is printed at exit.
+		Native OS file dialogs can't be watched; a warning is printed if they are enabled.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="get_active" qualifiers="static">
+			<return type="AgentUnattended" />
+			<description>
+				Returns the instance created by [code]--unattended[/code], or [code]null[/code] when the flag wasn't given.
+			</description>
+		</method>
+		<method name="get_records" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns one [Dictionary] per dialog seen so far, with the same keys as the [code]--dialog-log[/code] lines.
+			</description>
+		</method>
+		<method name="get_summary" qualifiers="const">
+			<return type="String" />
+			<description>
+				Returns the summary printed at exit, for example [code]unattended: 2 dialogs, 1 answered by rule, 1 stopped the run[/code].
+			</description>
+		</method>
+		<method name="has_failed" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if a dialog with no matching rule has opened. The run then ends with exit code 3.
+			</description>
+		</method>
+	</methods>
+</class>

@@ -151,6 +151,7 @@
 
 #if defined(MODULE_AGENT_TOOLS_ENABLED) && defined(TOOLS_ENABLED)
 #include "modules/agent_tools/agent_tools.h"
+#include "modules/agent_tools/agent_unattended.h"
 #endif
 
 #ifdef MODULE_GDSCRIPT_ENABLED
@@ -233,6 +234,7 @@ static String debug_server_uri;
 static bool wait_for_import = false;
 static String agent_tools_command; // agent_tools: --validate-project, --explain-property, ...
 static bool agent_test_mode = false; // agent_tools: --agent-test
+static bool agent_unattended = false; // agent_tools: --unattended
 static bool restore_editor_window_layout = true;
 #ifndef DISABLE_DEPRECATED
 static int converter_max_kb_file = 4 * 1024; // 4MB
@@ -712,6 +714,7 @@ void Main::print_help(const char *p_binary) {
 	print_help_option("--explain-property <scene> <node> <property>", "Show every saved layer that sets a node property (this scene, base scenes, script and class defaults) and quit. Add --json for JSON.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 	print_help_option("--find-overrides <scene>", "List every place that instances or inherits a scene, with the properties it overrides, and quit.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 	print_help_option("--agent-test [dir]", "Run the project's AgentTest scripts (default res://tests/agent) and quit. Options: --filter <name>, --test-timeout <s>, --json, --json-out <file>, --junit-out <file>. Exit code 0 = all passed.\n", CLI_OPTION_AVAILABILITY_TEMPLATE_UNSAFE);
+	print_help_option("--unattended", "Don't wait for dialogs nobody will click. Each dialog is printed; with no matching --dialog-answer rule, nothing is clicked and Godot quits with exit code 3. Options: --dialog-answer \"<title pattern>=ok|cancel\" (repeatable), --dialog-log <file> (one JSON line per dialog).\n", CLI_OPTION_AVAILABILITY_TEMPLATE_UNSAFE);
 	print_help_option("--resource-users <path>", "List every scene or resource that references a file, with the node properties using it, and quit.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 #endif
 	print_help_option("--export-release <preset> <path>", "Export the project in release mode using the given preset and output path. The preset name should match one defined in \"export_presets.cfg\".\n", CLI_OPTION_AVAILABILITY_EDITOR);
@@ -1718,6 +1721,9 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 			quit_after = 1;
 			agent_tools_command = arg;
 			main_args.push_back(arg); // The module reads its own arguments from the command line.
+		} else if (arg == "--unattended") {
+			agent_unattended = true;
+			main_args.push_back(arg); // The module reads --dialog-answer and --dialog-log itself.
 		} else if (arg == "--agent-test") {
 			agent_test_mode = true;
 			main_args.push_back(arg); // The module reads its own arguments from the command line.
@@ -4113,6 +4119,12 @@ int Main::start() {
 		} else if (E->get() == "--install-android-build-template") {
 			install_android_build_template = true;
 #endif // TOOLS_ENABLED
+#ifdef MODULE_AGENT_TOOLS_ENABLED
+		} else if (E->get() == "--dialog-answer" || E->get() == "--dialog-log") {
+			if (E->next()) {
+				E = E->next(); // agent_tools: the value isn't a scene or project path.
+			}
+#endif
 		} else if (E->get() == "--scene") {
 #if defined(OVERRIDE_PATH_ENABLED)
 			E = E->next();
@@ -4483,6 +4495,17 @@ int Main::start() {
 	OS::get_singleton()->set_main_loop(main_loop);
 
 	SceneTree *sml = Object::cast_to<SceneTree>(main_loop);
+#if defined(MODULE_AGENT_TOOLS_ENABLED) && defined(TOOLS_ENABLED)
+	if (sml && agent_unattended) {
+		// Before the editor or the main scene adds any dialogs.
+		const String error = AgentUnattended::install_from_cmdline(sml);
+		if (!error.is_empty()) {
+			OS::get_singleton()->printerr("%s\n", error.utf8().get_data());
+			OS::get_singleton()->set_exit_code(EXIT_FAILURE); // The headless macOS loop doesn't set it when start() fails.
+			return EXIT_FAILURE;
+		}
+	}
+#endif
 	if (sml) {
 #ifdef DEBUG_ENABLED
 		if (debug_collisions) {
@@ -5251,6 +5274,12 @@ bool Main::iteration() {
 	if (exit && !agent_tools_command.is_empty()) {
 		OS::get_singleton()->set_exit_code(AgentTools::run_command(agent_tools_command));
 		agent_tools_command = String();
+	}
+	if (exit && agent_unattended) {
+		agent_unattended = false;
+		if (AgentUnattended::finish()) {
+			OS::get_singleton()->set_exit_code(3); // A dialog stopped the run, even if a script quit with 0 afterwards.
+		}
 	}
 #endif
 	if (exit && quit_after_timeout && EditorNode::get_singleton()) {
