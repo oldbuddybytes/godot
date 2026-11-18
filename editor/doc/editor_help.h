@@ -112,6 +112,7 @@ class EditorHelp : public VBoxContainer {
 
 	RichTextLabel *class_desc = nullptr;
 	inline static DocTools *doc = nullptr;
+	inline static bool doc_cleaned_up = false; // Set at shutdown; late deferred calls must not touch the docs.
 	inline static DocTools *ext_doc = nullptr;
 
 	LineEdit *search = nullptr;
