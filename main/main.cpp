@@ -232,6 +232,7 @@ static bool auto_build_solutions = false;
 static String debug_server_uri;
 static bool wait_for_import = false;
 static String agent_tools_command; // agent_tools: --validate-project, --explain-property, ...
+static bool agent_test_mode = false; // agent_tools: --agent-test
 static bool restore_editor_window_layout = true;
 #ifndef DISABLE_DEPRECATED
 static int converter_max_kb_file = 4 * 1024; // 4MB
@@ -707,6 +708,7 @@ void Main::print_help(const char *p_binary) {
 	print_help_option("--validate-project", "Import, then check all scripts, scenes and resources and quit. Options: --json, --json-out <file>, --max-diagnostics <n> (0 = all), --only errors. Exit code 0 = clean, 1 = errors.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 	print_help_option("--explain-property <scene> <node> <property>", "Show every saved layer that sets a node property (this scene, base scenes, script and class defaults) and quit. Add --json for JSON.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 	print_help_option("--find-overrides <scene>", "List every place that instances or inherits a scene, with the properties it overrides, and quit.\n", CLI_OPTION_AVAILABILITY_EDITOR);
+	print_help_option("--agent-test [dir]", "Run the project's AgentTest scripts (default res://tests/agent) and quit. Options: --filter <name>, --test-timeout <s>, --json, --json-out <file>, --junit-out <file>. Exit code 0 = all passed.\n", CLI_OPTION_AVAILABILITY_TEMPLATE_UNSAFE);
 	print_help_option("--resource-users <path>", "List every scene or resource that references a file, with the node properties using it, and quit.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 #endif
 	print_help_option("--export-release <preset> <path>", "Export the project in release mode using the given preset and output path. The preset name should match one defined in \"export_presets.cfg\".\n", CLI_OPTION_AVAILABILITY_EDITOR);
@@ -1704,6 +1706,12 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 			quit_after = 1;
 			agent_tools_command = arg;
 			main_args.push_back(arg); // The module reads its own arguments from the command line.
+		} else if (arg == "--agent-test") {
+			agent_test_mode = true;
+			main_args.push_back(arg); // The module reads its own arguments from the command line.
+			if (fixed_fps == -1) {
+				fixed_fps = 60; // Same simulated time step every run, as fast as possible.
+			}
 #endif
 		} else if (arg == "--export-release" || arg == "--export-debug" ||
 				arg == "--export-pack" || arg == "--export-patch") { // Export project
@@ -4374,6 +4382,13 @@ int Main::start() {
 		// fine-tune further.
 		OS::get_singleton()->alert("Couldn't detect whether to run the editor, the project manager or a specific project. Aborting.");
 		ERR_FAIL_V_MSG(EXIT_FAILURE, "Couldn't detect whether to run the editor, the project manager or a specific project. Aborting.");
+	}
+#endif
+
+#ifdef MODULE_AGENT_TOOLS_ENABLED
+	if (agent_test_mode) {
+		main_loop_type = "AgentTestRunner";
+		game_path = String(); // Each test loads the scenes it needs.
 	}
 #endif
 

@@ -1,6 +1,8 @@
 #include "register_types.h"
 
 #include "agent_inspector.h"
+#include "agent_test.h"
+#include "agent_test_runner.h"
 #include "agent_tools.h"
 #include "agent_validator.h"
 
@@ -13,6 +15,9 @@ void initialize_agent_tools_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(AgentTools);
 	GDREGISTER_CLASS(AgentValidator);
 	GDREGISTER_CLASS(AgentInspector);
+	GDREGISTER_CLASS(AgentWait);
+	GDREGISTER_CLASS(AgentTest);
+	GDREGISTER_CLASS(AgentTestRunner);
 }
 
 void uninitialize_agent_tools_module(ModuleInitializationLevel p_level) {
