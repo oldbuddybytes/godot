@@ -87,6 +87,13 @@
 				Returns a signal emitted after [param frames] physics frames.
 			</description>
 		</method>
+		<method name="pick">
+			<return type="Dictionary" />
+			<param index="0" name="position" type="Vector2" />
+			<description>
+				Same as [method AgentInspector.pick] for the main window.
+			</description>
+		</method>
 		<method name="press_action">
 			<return type="Signal" />
 			<param index="0" name="action" type="StringName" />
@@ -100,6 +107,13 @@
 			<param index="0" name="action" type="StringName" />
 			<description>
 				Releases the input action [param action].
+			</description>
+		</method>
+		<method name="screenshot">
+			<return type="String" />
+			<param index="0" name="name" type="String" default="&quot;&quot;" />
+			<description>
+				Saves the current frame as [code]&lt;test&gt;_&lt;name&gt;.png[/code] (with a [code].json[/code] of camera info) in the folder given by [code]--screenshot-dir[/code] (default [code]agent_screenshots[/code]) and returns its path. Fails the test if nothing is rendered; run with [code]--offscreen[/code].
 			</description>
 		</method>
 		<method name="seconds">

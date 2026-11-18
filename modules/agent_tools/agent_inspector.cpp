@@ -385,5 +385,7 @@ void AgentInspector::_bind_methods() {
 	ClassDB::bind_static_method("AgentInspector", D_METHOD("explain_property", "node", "property"), &AgentInspector::explain_property);
 	ClassDB::bind_static_method("AgentInspector", D_METHOD("find_overrides", "scene"), &AgentInspector::find_overrides);
 	ClassDB::bind_static_method("AgentInspector", D_METHOD("resource_users", "resource"), &AgentInspector::resource_users);
+	ClassDB::bind_static_method("AgentInspector", D_METHOD("capture", "path", "scale"), &AgentInspector::capture, DEFVAL(1.0));
+	ClassDB::bind_static_method("AgentInspector", D_METHOD("pick", "position", "viewport"), &AgentInspector::pick, DEFVAL(Variant()));
 	ClassDB::bind_static_method("AgentInspector", D_METHOD("format_explain", "result"), &AgentInspector::format_explain);
 }

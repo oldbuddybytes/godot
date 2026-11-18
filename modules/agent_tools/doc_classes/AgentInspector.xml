@@ -9,6 +9,14 @@
 	<tutorials>
 	</tutorials>
 	<methods>
+		<method name="capture" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="path" type="String" />
+			<param index="1" name="scale" type="float" default="1.0" />
+			<description>
+				Saves the last rendered frame of the main window to [param path] as a PNG, resized by [param scale], plus a [code].json[/code] file next to it. Returns [code]path[/code], [code]frame[/code], [code]size[/code], [code]renderer[/code] and [code]camera[/code] (node, position, forward direction, fov and clip planes for 3D; position and zoom for 2D), or [code]error[/code]. Needs real rendering: run with [code]--offscreen[/code], not [code]--headless[/code]. Relative paths are relative to the directory the command was run from.
+			</description>
+		</method>
 		<method name="explain_property" qualifiers="static">
 			<return type="Dictionary" />
 			<param index="0" name="node" type="Node" />
@@ -38,6 +46,14 @@
 			<param index="0" name="result" type="Dictionary" />
 			<description>
 				Formats a result from [method explain_scene_property] as a short report; the winning layer is marked with [code]&gt;[/code].
+			</description>
+		</method>
+		<method name="pick" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="position" type="Vector2" />
+			<param index="1" name="viewport" type="Object" default="null" />
+			<description>
+				Returns what is under [param position] in [param viewport] (the main window if [code]null[/code]): [code]control[/code] for UI, then [code]object[/code] for the 3D or 2D physics shape hit (with [code]hit_position[/code]), or [code]object = null[/code] if nothing is there. For a [SubViewportContainer], [code]inside[/code] holds the result of picking inside its [SubViewport].
 			</description>
 		</method>
 		<method name="resource_users" qualifiers="static">

@@ -29,6 +29,8 @@ class AgentTestRunner : public SceneTree {
 	bool json = false;
 	String json_out;
 	String junit_out;
+	String screenshot_dir = "agent_screenshots";
+	double screenshot_scale = 1.0;
 
 	Array results;
 	int failed_count = 0;

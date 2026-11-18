@@ -1,5 +1,7 @@
 #include "agent_test.h"
 
+#include "agent_inspector.h"
+
 #include "core/config/engine.h"
 #include "core/input/input.h"
 #include "core/input/input_event.h"
@@ -287,6 +289,28 @@ bool AgentTest::assert_near(const Variant &p_actual, const Variant &p_expected, 
 	return ok;
 }
 
+String AgentTest::screenshot(const String &p_name) {
+	screenshot_count++;
+	const String name = p_name.is_empty() ? itos(screenshot_count) : p_name.validate_filename();
+	const Dictionary result = AgentInspector::capture(screenshot_dir.path_join(test_name + "_" + name + ".png"), screenshot_scale);
+	if (result.has("error")) {
+		fail("Screenshot failed: " + String(result["error"]));
+		return String();
+	}
+	trace("screenshot " + String(result["path"]));
+	return result["path"];
+}
+
+Dictionary AgentTest::pick(const Vector2 &p_position) {
+	return AgentInspector::pick(p_position);
+}
+
+void AgentTest::configure(const String &p_test_name, const String &p_screenshot_dir, double p_screenshot_scale) {
+	test_name = p_test_name;
+	screenshot_dir = p_screenshot_dir;
+	screenshot_scale = p_screenshot_scale;
+}
+
 void AgentTest::track_body(Node *p_body) {
 	ERR_FAIL_NULL(p_body);
 	tracked_bodies.push_back(p_body->get_instance_id());
@@ -322,6 +346,8 @@ void AgentTest::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("assert_eq", "actual", "expected", "message"), &AgentTest::assert_eq, DEFVAL(String()));
 	ClassDB::bind_method(D_METHOD("assert_near", "actual", "expected", "tolerance", "message"), &AgentTest::assert_near, DEFVAL(0.001), DEFVAL(String()));
 	ClassDB::bind_method(D_METHOD("fail", "message"), &AgentTest::fail);
+	ClassDB::bind_method(D_METHOD("screenshot", "name"), &AgentTest::screenshot, DEFVAL(String()));
+	ClassDB::bind_method(D_METHOD("pick", "position"), &AgentTest::pick);
 	ClassDB::bind_method(D_METHOD("track_body", "body"), &AgentTest::track_body);
 	ClassDB::bind_method(D_METHOD("trace", "text"), &AgentTest::trace);
 	ClassDB::bind_method(D_METHOD("get_frame"), &AgentTest::get_frame);

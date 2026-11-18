@@ -629,6 +629,9 @@ void Main::print_help(const char *p_binary) {
 	print_help_option("--gpu-index <device_index>", "Use a specific GPU (only available on the Forward+/Mobile renderers; run with --verbose to get a list of available devices).\n");
 	print_help_option("--text-driver <driver>", "Text driver (used for font rendering, bidirectional support and shaping).\n");
 	print_help_option("--tablet-driver <driver>", "Pen tablet input driver.\n");
+#ifdef MODULE_AGENT_TOOLS_ENABLED
+	print_help_option("--offscreen", "Render frames for real (unlike --headless) without opening a window, for screenshots in tests. macOS only.\n");
+#endif
 	print_help_option("--headless", "Enable headless mode (--display-driver headless --audio-driver Dummy). Useful for servers and with --script.\n");
 	print_help_option("--log-file <file>", "Write output/error log to the specified path instead of the default location defined by the project.\n");
 	print_help_option("", "<file> path should be absolute or relative to the project directory.\n");
@@ -1520,6 +1523,15 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 			audio_driver = NULL_AUDIO_DRIVER;
 			display_driver = NULL_DISPLAY_DRIVER;
 
+#ifdef MODULE_AGENT_TOOLS_ENABLED
+		} else if (arg == "--offscreen") { // agent_tools: render for real, but without a window.
+#ifdef MACOS_ENABLED
+			display_driver = EMBEDDED_DISPLAY_DRIVER;
+#else
+			OS::get_singleton()->print("--offscreen is only supported on macOS, aborting.\n");
+			goto error;
+#endif
+#endif
 		} else if (arg == "--embedded") { // Enable embedded mode.
 #ifdef MACOS_ENABLED
 			display_driver = EMBEDDED_DISPLAY_DRIVER;

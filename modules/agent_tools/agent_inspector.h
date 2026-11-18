@@ -23,6 +23,13 @@ public:
 	// Every scene or resource file that references p_resource, with the node properties using it.
 	static Array resource_users(const String &p_resource);
 
+	// Saves the last rendered frame of the main window as a PNG (plus a .json with frame,
+	// camera and renderer info) and returns that info. Needs real rendering (--offscreen, not --headless).
+	static Dictionary capture(const String &p_path, double p_scale = 1.0);
+	// What is under a pixel of a viewport (the main window if null): the UI control,
+	// following SubViewportContainers into their SubViewports, then the 3D or 2D physics shape.
+	static Dictionary pick(const Vector2 &p_position, Object *p_viewport = nullptr);
+
 	static String format_explain(const Dictionary &p_result);
 	static String format_list(const Array &p_entries, const String &p_what);
 

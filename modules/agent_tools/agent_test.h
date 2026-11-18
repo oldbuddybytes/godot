@@ -39,6 +39,10 @@ class AgentTest : public Node {
 	String failure;
 	String failure_file;
 	int failure_line = -1;
+	String test_name = "test";
+	String screenshot_dir = "agent_screenshots";
+	double screenshot_scale = 1.0;
+	int screenshot_count = 0;
 
 	Wait &_add_wait(int p_frames);
 	Signal _signal_of(const Wait &p_wait) const;
@@ -74,6 +78,10 @@ public:
 	bool assert_near(const Variant &p_actual, const Variant &p_expected, double p_tolerance = 0.001, const String &p_message = String());
 	void fail(const String &p_message);
 
+	// Looking at the rendered game (needs --offscreen, not --headless).
+	String screenshot(const String &p_name = String());
+	Dictionary pick(const Vector2 &p_position);
+
 	// Tracing: input sent, signals awaited and collisions of tracked bodies are recorded automatically.
 	void track_body(Node *p_body);
 	void trace(const String &p_text);
@@ -86,4 +94,5 @@ public:
 	int get_failure_line() const { return failure_line; }
 	Vector<String> get_trace() const { return trace_log; }
 	void free_loaded();
+	void configure(const String &p_test_name, const String &p_screenshot_dir, double p_screenshot_scale);
 };

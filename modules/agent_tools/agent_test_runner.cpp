@@ -45,6 +45,10 @@ void AgentTestRunner::initialize() {
 			json_out = next;
 		} else if (arg == "--junit-out") {
 			junit_out = next;
+		} else if (arg == "--screenshot-dir") {
+			screenshot_dir = next;
+		} else if (arg == "--screenshot-scale" && next.is_valid_float()) {
+			screenshot_scale = next.to_float();
 		} else if (arg == "--filter") {
 			filter = next;
 		} else if (arg == "--test-timeout" && next.is_valid_float()) {
@@ -107,6 +111,7 @@ void AgentTestRunner::_start_next() {
 	current = Object::cast_to<AgentTest>(ClassDB::instantiate(script->get_instance_base_type()));
 	current->set_script(script);
 	current->set_name("AgentTest");
+	current->configure(c.path.get_file().get_basename() + "_" + String(c.method), screenshot_dir, screenshot_scale);
 	get_root()->add_child(current);
 
 	Callable::CallError ce;
