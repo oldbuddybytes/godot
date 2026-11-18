@@ -1,6 +1,7 @@
 #include "register_types.h"
 
 #include "agent_tools.h"
+#include "agent_validator.h"
 
 #include "core/object/class_db.h"
 
@@ -9,6 +10,7 @@ void initialize_agent_tools_module(ModuleInitializationLevel p_level) {
 		return;
 	}
 	GDREGISTER_CLASS(AgentTools);
+	GDREGISTER_CLASS(AgentValidator);
 }
 
 void uninitialize_agent_tools_module(ModuleInitializationLevel p_level) {

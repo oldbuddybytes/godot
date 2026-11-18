@@ -149,6 +149,10 @@
 #include "modules/mono/editor/bindings_generator.h"
 #endif
 
+#if defined(MODULE_AGENT_TOOLS_ENABLED) && defined(TOOLS_ENABLED)
+#include "modules/agent_tools/agent_validator.h"
+#endif
+
 #ifdef MODULE_GDSCRIPT_ENABLED
 #include "modules/gdscript/gdscript.h"
 #if defined(TOOLS_ENABLED) && !defined(GDSCRIPT_NO_LSP)
@@ -227,6 +231,7 @@ static bool recovery_mode = false;
 static bool auto_build_solutions = false;
 static String debug_server_uri;
 static bool wait_for_import = false;
+static bool agent_validate_project = false; // agent_tools: --validate-project
 static bool restore_editor_window_layout = true;
 #ifndef DISABLE_DEPRECATED
 static int converter_max_kb_file = 4 * 1024; // 4MB
@@ -698,6 +703,9 @@ void Main::print_help(const char *p_binary) {
 #endif // defined(OVERRIDE_PATH_ENABLED)
 #ifdef TOOLS_ENABLED
 	print_help_option("--import", "Starts the editor, waits for any resources to be imported, and then quits.\n", CLI_OPTION_AVAILABILITY_EDITOR);
+#ifdef MODULE_AGENT_TOOLS_ENABLED
+	print_help_option("--validate-project", "Import, then check all scripts, scenes and resources and quit. Options: --json, --json-out <file>, --max-diagnostics <n> (0 = all), --only errors. Exit code 0 = clean, 1 = errors.\n", CLI_OPTION_AVAILABILITY_EDITOR);
+#endif
 	print_help_option("--export-release <preset> <path>", "Export the project in release mode using the given preset and output path. The preset name should match one defined in \"export_presets.cfg\".\n", CLI_OPTION_AVAILABILITY_EDITOR);
 	print_help_option("", "<path> should be absolute or relative to the project directory, and include the filename for the binary (e.g. \"builds/game.exe\").\n");
 	print_help_option("", "The target directory must exist.\n");
@@ -1685,6 +1693,14 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 			cmdline_tool = true;
 			wait_for_import = true;
 			quit_after = 1;
+#ifdef MODULE_AGENT_TOOLS_ENABLED
+		} else if (arg == "--validate-project") {
+			editor = true;
+			cmdline_tool = true;
+			wait_for_import = true;
+			quit_after = 1;
+			agent_validate_project = true;
+#endif
 		} else if (arg == "--export-release" || arg == "--export-debug" ||
 				arg == "--export-pack" || arg == "--export-patch") { // Export project
 			// Actually handling is done in start().
@@ -5195,6 +5211,12 @@ bool Main::iteration() {
 #endif
 
 #ifdef TOOLS_ENABLED
+#ifdef MODULE_AGENT_TOOLS_ENABLED
+	if (exit && agent_validate_project) {
+		agent_validate_project = false;
+		OS::get_singleton()->set_exit_code(AgentValidator::run_cli());
+	}
+#endif
 	if (exit && quit_after_timeout && EditorNode::get_singleton()) {
 		EditorNode::get_singleton()->unload_editor_addons();
 	}
