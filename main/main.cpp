@@ -233,7 +233,7 @@ static bool recovery_mode = false;
 static bool auto_build_solutions = false;
 static String debug_server_uri;
 static bool wait_for_import = false;
-static String agent_tools_command; // agent_tools: --validate-project, --explain-property, ...
+static String agent_tools_command; // agent_tools: --validate-project, --explain-property, --analyze-animation, ...
 static bool agent_test_mode = false; // agent_tools: --agent-test
 static bool agent_unattended = false; // agent_tools: --unattended
 static bool restore_editor_window_layout = true;
@@ -716,6 +716,7 @@ void Main::print_help(const char *p_binary) {
 	print_help_option("--find-overrides <scene>", "List every place that instances or inherits a scene, with the properties it overrides, and quit.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 	print_help_option("--agent-test [dir]", "Run the project's AgentTest scripts (default res://tests/agent) and quit. Options: --filter <name>, --test-timeout <s>, --json, --json-out <file>, --junit-out <file>. Exit code 0 = all passed.\n", CLI_OPTION_AVAILABILITY_TEMPLATE_UNSAFE);
 	print_help_option("--unattended", "Don't wait for dialogs nobody will click. Each dialog is printed; with no matching --dialog-answer rule, nothing is clicked and Godot quits with exit code 3. Options: --dialog-answer \"<title pattern>=ok|cancel\" (repeatable), --dialog-log <file> (one JSON line per dialog).\n", CLI_OPTION_AVAILABILITY_TEMPLATE_UNSAFE);
+	print_help_option("--analyze-animation <scene> [<scene> ...]", "Check every skeletal animation clip in the scenes for sliding feet, ground penetration, loop pops and drift, rotation spikes, stretched bones and broken tracks, and quit. Options: --animation <name>, --player <node path>, --feet <bone,bone>, --sample-rate <hz> (default 60), --json, --json-out <file>, --max-diagnostics <n> (0 = all), --only errors. Exit code 0 = clean, 1 = errors or warnings, 2 = could not run.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 	print_help_option("--resource-users <path>", "List every scene or resource that references a file, with the node properties using it, and quit.\n", CLI_OPTION_AVAILABILITY_EDITOR);
 #endif
 	print_help_option("--export-release <preset> <path>", "Export the project in release mode using the given preset and output path. The preset name should match one defined in \"export_presets.cfg\".\n", CLI_OPTION_AVAILABILITY_EDITOR);
@@ -1715,7 +1716,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 			wait_for_import = true;
 			quit_after = 1;
 #ifdef MODULE_AGENT_TOOLS_ENABLED
-		} else if (arg == "--validate-project" || arg == "--explain-property" || arg == "--find-overrides" || arg == "--resource-users") {
+		} else if (arg == "--validate-project" || arg == "--explain-property" || arg == "--find-overrides" || arg == "--resource-users" || arg == "--analyze-animation") {
 			editor = true;
 			cmdline_tool = true;
 			wait_for_import = true;

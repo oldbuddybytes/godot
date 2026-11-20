@@ -7,7 +7,7 @@ def configure(env):
 
 
 def get_doc_classes():
-    return ["AgentTools", "AgentValidator", "AgentInspector", "AgentTest", "AgentWait", "AgentTestRunner", "AgentUnattended"]
+    return ["AgentTools", "AgentValidator", "AgentInspector", "AgentTest", "AgentWait", "AgentTestRunner", "AgentUnattended", "AgentMotionAnalyzer"]
 
 
 def get_doc_path():

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="AgentMotionAnalyzer" inherits="RefCounted" api_type="core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Checks skeletal animation clips for sliding feet, loop pops, rotation spikes, stretched bones and broken tracks.
+	</brief_description>
+	<description>
+		Samples a clip on its skeleton and reports motion defects as diagnostics with the bone, the time range and the frame range, so a clip can be checked without watching it. Poses come from the clip's position, rotation and scale tracks applied to the skeleton's rest pose, using the engine's own track interpolation. SkeletonModifier3D nodes (IK, LookAt), [AnimationTree] blending and the [code]RESET[/code] animation are not applied. Value, method, Bezier and blend shape tracks are ignored. Used by [code]--analyze-animation[/code].
+		[codeblock]
+		var analyzer = AgentMotionAnalyzer.new()
+		var result = analyzer.analyze($Skeleton3D, $AnimationPlayer.get_animation("walk"))
+		print(AgentMotionAnalyzer.format_text(result))
+		[/codeblock]
+		Distances are measured against a scale reference: the height of the [code]Hips[/code] bone above the lowest bone at rest, or half the skeleton's rest height if it has no hips bone. The same defaults work at any unit scale. A foot bone is in contact when it is within [code]contact_height[/code] of its own rest height. Foot bones are the ones named in [code]feet[/code], otherwise [code]LeftFoot[/code], [code]RightFoot[/code], [code]LeftToes[/code] and [code]RightToes[/code], otherwise any bone whose name contains [code]foot[/code], [code]toe[/code] or [code]ankle[/code]. A clip is in place when the hips travel less than 0.1 × the scale reference horizontally. In an in-place clip, a planted foot sliding backward at the treadmill speed is expected, so slide is measured against the median speed of planted feet.
+		Codes (severity): [code]ANIM_EMPTY[/code] (error), [code]ANIM_TRACK_UNRESOLVED[/code] (error), [code]ANIM_SKELETON_NOT_FOUND[/code] (error), [code]ANIM_ROTATION_SPIKE[/code], [code]ANIM_LOOP_SEAM[/code], [code]ANIM_FOOT_SLIDE[/code], [code]ANIM_GROUND_PENETRATION[/code], [code]ANIM_BONE_LENGTH[/code], [code]ANIM_LOOP_DRIFT[/code], [code]ANIM_LOAD_ERROR[/code] (warnings), [code]ANIM_NEVER_GROUNDED[/code] and [code]ANIM_FEET_NOT_FOUND[/code] (info). Info entries don't count as errors or warnings. Each code is reported at most 10 times per bone per clip; the last entry's message says how many more there were.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="analyze">
+			<return type="Dictionary" />
+			<param index="0" name="skeleton" type="Skeleton3D" />
+			<param index="1" name="animation" type="Animation" />
+			<param index="2" name="options" type="Dictionary" default="{}" />
+			<description>
+				Analyzes [param animation] on [param skeleton]. Track paths such as [code]Skeleton3D:LeftFoot[/code] resolve relative to the [code]root_node[/code] option, or to the skeleton's parent. Tracks for other nodes are ignored. Tracks for nodes or bones that don't exist are [code]ANIM_TRACK_UNRESOLVED[/code] errors.
+				[param options] keys, all optional. Distances are fractions of the scale reference:
+				- [code]sample_rate[/code]: samples per second, default [code]60[/code].
+				- [code]contact_height[/code]: how close to its rest height a foot counts as planted, default [code]0.03[/code]. Also the limit for loop jumps and drift in position.
+				- [code]slide_speed[/code]: horizontal speed of a planted foot, per second, above which it slides for 3 or more samples, default [code]0.15[/code].
+				- [code]penetration_depth[/code]: how far below its rest height a foot may go, default [code]0.03[/code].
+				- [code]spike_angle[/code]: degrees a bone may turn in one sample at 60 Hz (scaled for other rates), both relative to its parent and in skeleton space, default [code]30[/code].
+				- [code]seam_angle[/code]: degrees a bone may jump where a linear loop wraps, default [code]5[/code]. The jump must also be at least 3 times the bone's 95th-percentile per-sample change elsewhere in the clip.
+				- [code]bone_length_tolerance[/code]: how much a bone's distance to its parent may differ from rest, as a fraction, default [code]0.05[/code]. Root bones and their direct children are not checked, because they translate on purpose.
+				- [code]feet[/code]: foot bone names, as a [PackedStringArray] or a comma-separated [String].
+				- [code]root_node[/code]: the [Node] that track paths are relative to.
+				Returns a [Dictionary] with [code]ok[/code] ([code]true[/code] when there are no errors or warnings), [code]errors[/code], [code]warnings[/code], [code]clips[/code], [code]skipped[/code], [code]clip_summaries[/code] and [code]diagnostics[/code].
+				Each summary has [code]animation[/code], [code]length[/code], [code]loop_mode[/code] ([code]"none"[/code], [code]"linear"[/code] or [code]"pingpong"[/code]), [code]sample_rate[/code], [code]in_place[/code], [code]travel_distance[/code], [code]average_speed[/code] and [code]foot_contact_ratio[/code] (bone name to the fraction of samples in contact), plus [code]path[/code] and [code]player[/code] from [method analyze_scene].
+				Each diagnostic has [code]code[/code], [code]severity[/code] ([code]"error"[/code], [code]"warning"[/code] or [code]"info"[/code]), [code]animation[/code] and [code]message[/code]. Where they apply, it also has [code]path[/code], [code]player[/code], [code]bone[/code], [code]start_time[/code]/[code]end_time[/code] in seconds, [code]start_frame[/code]/[code]end_frame[/code] as sample indices, [code]value[/code] (what was measured) and [code]threshold[/code] (the limit it broke).
+				Loop seams and drift are only checked for [constant Animation.LOOP_LINEAR] clips.
+			</description>
+		</method>
+		<method name="analyze_scene">
+			<return type="Dictionary" />
+			<param index="0" name="path" type="String" />
+			<param index="1" name="options" type="Dictionary" default="{}" />
+			<description>
+				Loads the scene at [param path] (for example a [code].tscn[/code] or an imported [code].glb[/code]) without adding it to the tree. Every clip of every [AnimationPlayer] in it is analyzed with [method analyze], against each [Skeleton3D] its tracks move, with paths relative to the player's [member AnimationMixer.root_node]. Clips are visited in name order.
+				Besides the [method analyze] options, [param options] accepts [code]animation[/code] (a clip name, with or without its library prefix) and [code]player[/code] (the player's path from the scene root) to analyze only matching clips.
+				[code]RESET[/code] clips, clips with no transform tracks and clips that only move non-skeleton nodes are listed in [code]skipped[/code], each with [code]path[/code], [code]player[/code], [code]animation[/code] and [code]reason[/code]. Errors printed while loading become [code]ANIM_LOAD_ERROR[/code] warnings. If the scene can't be loaded, the result has an [code]error[/code] message and no clips.
+			</description>
+		</method>
+		<method name="format_text" qualifiers="static">
+			<return type="String" />
+			<param index="0" name="result" type="Dictionary" />
+			<param index="1" name="max_diagnostics" type="int" default="20" />
+			<param index="2" name="errors_only" type="bool" default="false" />
+			<description>
+				Formats a result from [method analyze] or [method analyze_scene] as a short report. The first line is [code]OK: N clips[/code] or [code]FAIL: E errors, W warnings in N clips[/code], with the skipped count if there is one. Then comes one line per diagnostic: severity, path, [code][animation][/code], bone, time range, code and message. At most [param max_diagnostics] lines are shown ([code]0[/code] for all). If [param errors_only] is [code]true[/code], only errors are shown.
+			</description>
+		</method>
+	</methods>
+</class>

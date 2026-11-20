@@ -12,6 +12,7 @@ in the editor's help (search for `Agent`), and `godot --help` lists every flag.
 | Find broken scripts, scenes and references | [`--validate-project`](#check-a-project---validate-project) |
 | Know why a node property has the value it has | [`--explain-property`, `--find-overrides`, `--resource-users`](#where-a-value-comes-from) |
 | Play the game and check what happens | [`--agent-test`](#gameplay-tests---agent-test) |
+| Check a skeletal animation for sliding feet, loop pops and broken tracks | [`--analyze-animation`](#check-animations---analyze-animation) |
 | See what the game rendered, or what's under a pixel | [`--offscreen`, `screenshot()`, `pick()`](#screenshots-and-picking---offscreen) |
 | Run an editor job (bake, export, import) from a script | [`--unattended`](#unattended-runs---unattended) |
 
@@ -26,9 +27,9 @@ the module: it rebuilds in seconds but runs 3–5× slower.
 
 | Code | Meaning |
 |---|---|
-| 0 | Clean: no errors, all tests passed |
-| 1 | Problems found: errors in the project, failing tests, or a bad `--dialog-answer` rule |
-| 2 | `--validate-project` couldn't run (for example, an unreadable project) |
+| 0 | Clean: no errors, all tests passed, no animation warnings |
+| 1 | Problems found: errors in the project, failing tests, animation errors or warnings, or a bad `--dialog-answer` rule |
+| 2 | `--validate-project` or `--analyze-animation` couldn't run (for example, an unreadable project or scene, no clips matched, or bad arguments) |
 | 3 | `--unattended`: a dialog with no matching rule stopped the run |
 
 ## Check a project: `--validate-project`
@@ -156,6 +157,81 @@ FAIL: 2 tests, 1 passed, 1 failed (155 physics frames)
 `fNN` is the physics frame. A script error in a test fails that test, and a test script that
 doesn't parse is reported as a failing `(load)` test, not skipped.
 
+## Check animations: `--analyze-animation`
+
+Plays every skeletal clip in a scene on its skeleton, sample by sample, and reports what a person
+would notice when watching it: feet that slide while planted or sink into the floor, a pop where a
+loop wraps, a bone that snaps half a turn in one frame, stretched bones and tracks that point at
+nothing. Each finding names the bone, the time range and the measured value against its limit.
+Works on `.tscn` scenes and imported models such as `.glb`.
+
+```bash
+$GODOT --headless --quiet --path . --analyze-animation res://anim/broken_walk.tscn res://anim/good_walk.tscn
+```
+
+```
+FAIL: 1 error, 6 warnings in 5 clips (1 skipped)
+WARNING res://anim/broken_walk.tscn [seam] Spine 1.00s ANIM_LOOP_SEAM jumps 20.0 deg where the loop wraps (limit 5.0 deg)
+WARNING res://anim/broken_walk.tscn [slide] LeftFoot 0.25-0.75s ANIM_FOOT_SLIDE slides at 0.500 units/s while planted (limit 0.150)
+WARNING res://anim/broken_walk.tscn [slide] RightFoot 0.25-0.75s ANIM_FOOT_SLIDE slides at 0.500 units/s while planted (limit 0.150)
+WARNING res://anim/broken_walk.tscn [slide] LeftToes 0.25-0.75s ANIM_FOOT_SLIDE slides at 0.500 units/s while planted (limit 0.150)
+WARNING res://anim/broken_walk.tscn [slide] RightToes 0.25-0.75s ANIM_FOOT_SLIDE slides at 0.500 units/s while planted (limit 0.150)
+WARNING res://anim/broken_walk.tscn [spike] Head 0.50-0.52s ANIM_ROTATION_SPIKE turns 120.0 deg in one sample (limit 30.0 deg)
+ERROR res://anim/broken_walk.tscn [unresolved] Tail ANIM_TRACK_UNRESOLVED track 1 points at Skeleton3D:Tail, but the skeleton has no bone "Tail"
+```
+
+Scenes come right after the flag. Options: `--animation <name>` (one clip, with or without its
+library prefix), `--player <node path>` (one AnimationPlayer, by its path from the scene root),
+`--feet <bone,bone>`, `--sample-rate <hz>` (default 60), `--json`, `--json-out <file>`,
+`--max-diagnostics <n>` (default 20, 0 for all), `--only errors`. With `--json`, each diagnostic
+also has `start_frame`/`end_frame` (sample indices), `value` and `threshold`, and each clip has a
+summary with `in_place`, `travel_distance`, `average_speed` and `foot_contact_ratio`.
+
+| Code | Severity | Meaning |
+|---|---|---|
+| `ANIM_TRACK_UNRESOLVED` | error | A position, rotation or scale track points at a node or bone that doesn't exist |
+| `ANIM_SKELETON_NOT_FOUND` | error | A clip's bone tracks point at nodes that don't exist, so there is no skeleton to check |
+| `ANIM_EMPTY` | error | The clip has zero length, or no track moves a bone of the skeleton |
+| `ANIM_FOOT_SLIDE` | warning | A planted foot moves sideways for 3 or more samples |
+| `ANIM_GROUND_PENETRATION` | warning | A foot goes below its rest height |
+| `ANIM_LOOP_SEAM` | warning | A looping clip jumps where it wraps: a bone's rotation, or a foot's position relative to the hips |
+| `ANIM_LOOP_DRIFT` | warning | A looping clip ends higher, lower or turned from where it starts (or, if in place, moved) |
+| `ANIM_ROTATION_SPIKE` | warning | A bone turns more than 30 degrees in one sample, both relative to its parent and in the world |
+| `ANIM_BONE_LENGTH` | warning | A bone's distance to its parent differs more than 5% from rest |
+| `ANIM_LOAD_ERROR` | warning | The engine printed an error while loading the scene |
+| `ANIM_NEVER_GROUNDED` | info | No foot touches the ground in the whole clip; fine for jumps, falls and swims |
+| `ANIM_FEET_NOT_FOUND` | info | No foot bones were found (foot checks skipped), or a `--feet` name doesn't exist |
+
+Info lines never fail a run. `RESET` clips and clips that only move non-skeleton nodes, such as a
+door, are skipped and counted in the first line.
+
+How it measures:
+
+- **Scale.** Distances are fractions of the skeleton's height: the `Hips` bone's height at rest, or
+  half the rest height if there is no hips bone. The same limits work for a rig in meters or
+  centimeters, and messages say "units".
+- **Feet.** `--feet` names them. Otherwise `LeftFoot`, `RightFoot`, `LeftToes` and `RightToes`, the
+  names Godot's humanoid retargeting gives, are used; failing that, any bone whose name contains
+  `foot`, `toe` or `ankle`. A foot is planted when it is within 3% of the scale of its own rest
+  height. The rig's rest pose is assumed to stand on the ground.
+- **In place.** If the hips travel less than 10% of the scale, the clip is in place. A planted foot
+  then moving backward at the treadmill speed is expected, so slide is measured against the
+  median speed of planted feet, not against zero.
+
+From GDScript: `AgentMotionAnalyzer.new().analyze(skeleton, animation, options)` checks one clip,
+and `.analyze_scene(path, options)` checks a scene. Both return the same Dictionary as `--json`.
+`options` can change every limit (`contact_height`, `slide_speed`, `penetration_depth`,
+`spike_angle`, `seam_angle`, `bone_length_tolerance`, `sample_rate`) and set `feet`; see the
+class reference. In a gameplay test:
+
+```gdscript
+func test_guard_walk_is_clean() -> void:
+	var guard := load_scene("res://chars/guard.tscn")
+	var player: AnimationPlayer = guard.get_node("AnimationPlayer")
+	var result := AgentMotionAnalyzer.new().analyze(guard.get_node("Skeleton3D"), player.get_animation("walk"))
+	assert_true(result.ok, AgentMotionAnalyzer.format_text(result))
+```
+
 ## Screenshots and picking: `--offscreen`
 
 `--headless` renders nothing. `--offscreen` (macOS) renders real frames with no window, so tests
@@ -230,6 +306,9 @@ From GDScript: `AgentUnattended.get_active()` returns the running instance (or `
   resolve against the folder you ran the command from, not the project folder.
 - **`--quiet`** hides GDScript `print()`. The tools' own output still shows; in tests, use
   `printerr()` or `trace()`.
+- **`--analyze-animation` checks the clip, not the final pose.** IK and other
+  SkeletonModifier3D nodes, AnimationTree blending and `RESET` aren't applied, so a defect an IK
+  node hides is still reported, and one it causes isn't.
 - **Name nodes created in code.** Traces and `pick()` show node paths, and an unnamed collider is
   `@CollisionShape3D@173`. Setting `.name` makes failures readable.
 - **`ERROR: Plugin is not attached to debugger.`** It appears when a run is stopped with a dialog
@@ -242,6 +321,7 @@ From the folder above the engine clone:
 ```bash
 ./check.sh          # incremental build + unit tests (godot --test --test-case="*[AgentTools]*")
 ./check.sh all      # also every phase against test-project/ and test-unattended/
+./check.sh phase6   # just the --analyze-animation checks (fixtures: test-project/anim/make_fixtures.gd)
 ```
 
 Output is kept short; full logs are in `build.log`, `test.log` and `run.log`. Build with
