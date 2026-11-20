@@ -7,6 +7,7 @@
 #include "core/io/dir_access.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_uid.h"
+#include "core/os/mutex.h"
 #include "core/os/os.h"
 #include "core/templates/vector.h"
 
@@ -93,3 +94,50 @@ inline String agent_output_path(const String &p_path) {
 	const String pwd = OS::get_singleton()->get_environment("PWD");
 	return pwd.is_empty() ? p_path : pwd.path_join(p_path).simplify_path();
 }
+
+// Keeps engine errors printed while the editor starts up (importing, compiling every script) off
+// the console for commands that report problems themselves, such as --validate-project. Without
+// it, one broken script prints its errors twice: once from Godot, once in the report. The captured
+// errors are returned when it ends, so they can still be shown if the command can't run.
+class AgentStartupQuiet {
+	inline static AgentStartupQuiet *singleton = nullptr;
+	ErrorHandlerList handler;
+	Mutex mutex; // Imports report errors from worker threads.
+	Vector<String> messages;
+	bool was_printing = true;
+
+	static void _on_error(void *p_self, const char *p_function, const char *p_file, int p_line, const char *p_error, const char *p_message, bool p_editor_notify, ErrorHandlerType p_type) {
+		AgentStartupQuiet *self = static_cast<AgentStartupQuiet *>(p_self);
+		MutexLock lock(self->mutex);
+		if (self->messages.size() < 20) {
+			const String text = String::utf8((p_message && *p_message) ? p_message : p_error);
+			self->messages.push_back(vformat("%s (%s:%d)", text, String::utf8(p_file), p_line));
+		}
+	}
+
+public:
+	static void begin() {
+		if (singleton) {
+			return;
+		}
+		singleton = memnew(AgentStartupQuiet);
+		singleton->handler.errfunc = _on_error;
+		singleton->handler.userdata = singleton;
+		add_error_handler(&singleton->handler);
+		singleton->was_printing = Engine::get_singleton()->is_printing_error_messages();
+		Engine::get_singleton()->set_print_error_messages(false);
+	}
+
+	// Stops capturing and returns what was captured (at most 20 errors).
+	static Vector<String> end() {
+		if (!singleton) {
+			return Vector<String>();
+		}
+		remove_error_handler(&singleton->handler);
+		Engine::get_singleton()->set_print_error_messages(singleton->was_printing);
+		Vector<String> captured = singleton->messages;
+		memdelete(singleton);
+		singleton = nullptr;
+		return captured;
+	}
+};

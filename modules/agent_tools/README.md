@@ -16,8 +16,11 @@ in the editor's help (search for `Agent`), and `godot --help` lists every flag.
 | Run an editor job (bake, export, import) from a script | [`--unattended`](#unattended-runs---unattended) |
 
 ```bash
-GODOT=/path/to/godot-engine/godot/bin/godot.macos.editor.dev.arm64
+GODOT=/path/to/godot-engine/godot/bin/godot.macos.editor.arm64
 ```
+
+Use this optimized build to run the tools. The `.dev` build that `check.sh` uses is for working on
+the module: it rebuilds in seconds but runs 3–5× slower.
 
 ## Exit codes
 
@@ -46,6 +49,9 @@ WARNING res://broken/bad_uid.tscn INVALID_UID uid://bogusuid0000 is unknown; loa
 
 Options: `--json` (print JSON instead), `--json-out <file>`, `--max-diagnostics <n>` (default 20,
 0 for all), `--only errors`.
+
+Errors Godot itself prints while the editor starts up are hidden, because the report already
+covers them. If the check can't run (exit 2), they're printed as `startup error:` lines.
 
 Codes: `SCRIPT_PARSE_ERROR`, `MISSING_DEPENDENCY`, `INVALID_UID` (warning), `LOAD_FAILED`, `LOAD_ERROR`,
 and `SCRIPT_WARNING_<NAME>` for GDScript warnings, such as `SCRIPT_WARNING_STANDALONE_TERNARY`.
@@ -239,6 +245,8 @@ From the folder above the engine clone:
 ```
 
 Output is kept short; full logs are in `build.log`, `test.log` and `run.log`. Build with
-`scons platform=macos target=editor dev_build=yes tests=yes vulkan=no`. Class docs live in
+`scons platform=macos target=editor dev_build=yes tests=yes vulkan=no` while developing, and
+`scons platform=macos target=editor tests=no vulkan=no` for the optimized `godot.macos.editor.arm64`
+(a full build; the two keep separate object files). Class docs live in
 `doc_classes/`; after changing bound methods run `bin/godot... --doctool .` and escape `<` and `>`
 as `&lt;` and `&gt;` in descriptions.

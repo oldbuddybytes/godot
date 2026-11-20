@@ -150,6 +150,7 @@
 #endif
 
 #if defined(MODULE_AGENT_TOOLS_ENABLED) && defined(TOOLS_ENABLED)
+#include "modules/agent_tools/agent_common.h"
 #include "modules/agent_tools/agent_tools.h"
 #include "modules/agent_tools/agent_unattended.h"
 #endif
@@ -4686,6 +4687,7 @@ int Main::start() {
 			}
 #ifdef MODULE_AGENT_TOOLS_ENABLED
 			if (!agent_tools_command.is_empty()) {
+				AgentStartupQuiet::begin(); // The command reports script and load errors itself.
 				game_path = ""; // Scene paths are arguments to the agent_tools command, not scenes to open.
 			}
 #endif
@@ -5272,7 +5274,14 @@ bool Main::iteration() {
 #ifdef TOOLS_ENABLED
 #ifdef MODULE_AGENT_TOOLS_ENABLED
 	if (exit && !agent_tools_command.is_empty()) {
-		OS::get_singleton()->set_exit_code(AgentTools::run_command(agent_tools_command));
+		const Vector<String> startup_errors = AgentStartupQuiet::end();
+		const int code = AgentTools::run_command(agent_tools_command);
+		if (code == 2) { // The command couldn't run: show what went wrong during startup.
+			for (const String &error : startup_errors) {
+				OS::get_singleton()->printerr("startup error: %s\n", error.utf8().get_data());
+			}
+		}
+		OS::get_singleton()->set_exit_code(code);
 		agent_tools_command = String();
 	}
 	if (exit && agent_unattended) {
